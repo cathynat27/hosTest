@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getToken, setToken } from "@/lib/auth";
 import { login } from "@/lib/api";
 import { TEST_USERS } from "@/lib/dev-logins";
+import { isDevLoginEnabled } from "@/lib/runtime-config";
 
 function HotelIcon({ className }: { className?: string }) {
   return (
@@ -44,7 +45,7 @@ const FEATURES = [
   },
 ];
 
-const ENABLE_DEV_LOGINS = process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN === "true";
+const ENABLE_DEV_LOGINS = isDevLoginEnabled();
 
 export default function LoginPage() {
   const router = useRouter();

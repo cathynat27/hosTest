@@ -9,8 +9,8 @@ import {
   resolveConversation,
   takeoverConversation,
 } from "@/lib/api";
-import { clearToken, getToken } from "@/lib/auth";
-import { disconnectSocket, getSocket } from "@/lib/socket";
+import { AuthTokenError, clearToken, getToken, handleAuthFailure } from "@/lib/auth";
+import { disconnectSocket, getSocket, isSocketAuthError } from "@/lib/socket";
 import {
   Conversation,
   ConversationDetail,
@@ -257,6 +257,7 @@ export default function DashboardPage() {
   const [isSending, setIsSending] = useState(false);
   const [isTakingOver, setIsTakingOver] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
+  const [socketIssue, setSocketIssue] = useState<string | null>(null);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
@@ -299,16 +300,27 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const token = getToken();
-    if (!token) { router.replace("/login"); return; }
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
 
     const init = async () => {
-      try { await refreshList(); setListError(null); }
-      catch (err) { setListError(err instanceof Error ? err.message : "Failed to load conversations"); }
-      finally { setLoadingList(false); }
+      try {
+        await refreshList();
+        setListError(null);
+      } catch (err) {
+        if (err instanceof AuthTokenError) {
+          handleAuthFailure(err.reason);
+        }
+        setListError(err instanceof Error ? err.message : "Failed to load conversations");
+      } finally {
+        setLoadingList(false);
+      }
     };
     void init();
 
-    const socket = getSocket(token);
+    const socket = getSocket();
 
     const handleEscalation = async (payload: EscalationAlertPayload) => {
       setToast(`${payload.escalationReason.replace(/_/g, " ")}`);
@@ -369,14 +381,42 @@ export default function DashboardPage() {
       });
     };
 
+    const handleConnected = () => {
+      setSocketIssue(null);
+    };
+
+    const handleConnectError = (error: unknown) => {
+      if (isSocketAuthError(error)) {
+        handleAuthFailure("expired");
+      }
+      setSocketIssue("Realtime connection lost. Retrying automatically...");
+    };
+
+    const handleReconnectFailed = () => {
+      setSocketIssue("Realtime updates are unstable. Retrying in the background...");
+    };
+
+    const handleReconnectSuccess = () => {
+      setSocketIssue(null);
+      void refreshList();
+    };
+
     socket.on("escalation_alert", handleEscalation);
     socket.on("conversation_updated", handleConversationUpdated);
     socket.on("new_message", handleNewMessage);
+    socket.on("connect", handleConnected);
+    socket.on("connect_error", handleConnectError);
+    socket.io.on("reconnect_failed", handleReconnectFailed);
+    socket.io.on("reconnect", handleReconnectSuccess);
 
     return () => {
       socket.off("escalation_alert", handleEscalation);
       socket.off("conversation_updated", handleConversationUpdated);
       socket.off("new_message", handleNewMessage);
+      socket.off("connect", handleConnected);
+      socket.off("connect_error", handleConnectError);
+      socket.io.off("reconnect_failed", handleReconnectFailed);
+      socket.io.off("reconnect", handleReconnectSuccess);
       disconnectSocket();
     };
   }, [router]);
@@ -405,12 +445,29 @@ export default function DashboardPage() {
 
   const onTakeOver = async () => {
     if (!detail) return;
+
+    const detailSnapshot = detail;
+    const listSnapshot = conversationsRef.current;
+    const optimisticStatus: ConversationStatus = "HUMAN_ACTIVE";
+
     setIsTakingOver(true);
+    setDetailError(null);
+
+    updateInList({
+      id: detail.id,
+      status: optimisticStatus,
+      escalation_reason: undefined,
+    });
+    setDetail((prev) => (prev ? { ...prev, status: optimisticStatus, escalation_reason: undefined } : prev));
+
     try {
       const updated = await takeoverConversation(detail.id);
       updateInList(updated);
       setDetail((prev) => (prev ? { ...prev, ...updated } : prev));
     } catch (err) {
+      conversationsRef.current = listSnapshot;
+      setConversations(listSnapshot);
+      setDetail(detailSnapshot);
       setDetailError(err instanceof Error ? err.message : "Failed to take over conversation");
     } finally { setIsTakingOver(false); }
   };
@@ -418,33 +475,83 @@ export default function DashboardPage() {
   const onSendReply = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!detail || !replyText.trim() || detail.status !== "HUMAN_ACTIVE") return;
+
+    const trimmed = replyText.trim();
+    const detailSnapshot = detail;
+    const listSnapshot = conversationsRef.current;
+    const optimisticSentAt = new Date().toISOString();
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      conversation_id: detail.id,
+      direction: "outbound",
+      sender_type: "staff",
+      body: trimmed,
+      sent_at: optimisticSentAt,
+    };
+
     setIsSending(true);
     setDetailError(null);
+    setReplyText("");
+
+    setDetail((prev) =>
+      prev
+        ? {
+            ...prev,
+            latest_message: optimisticMessage.body,
+            last_message_at: optimisticMessage.sent_at,
+            messages: [...prev.messages, optimisticMessage],
+          }
+        : prev,
+    );
+    updateInList({ id: detail.id, latest_message: optimisticMessage.body, last_message_at: optimisticMessage.sent_at });
+
     try {
-      const saved = await replyToConversation(detail.id, replyText.trim());
+      const saved = await replyToConversation(detail.id, trimmed);
       setDetail((prev) =>
-        prev ? { ...prev, latest_message: saved.body, last_message_at: saved.sent_at, messages: [...prev.messages, saved] } : prev,
+        prev
+          ? {
+              ...prev,
+              latest_message: saved.body,
+              last_message_at: saved.sent_at,
+              messages: prev.messages.map((message) =>
+                message.id === optimisticMessage.id ? saved : message,
+              ),
+            }
+          : prev,
       );
       updateInList({ id: detail.id, latest_message: saved.body, last_message_at: saved.sent_at });
-      setReplyText("");
     } catch (err) {
+      conversationsRef.current = listSnapshot;
+      setConversations(listSnapshot);
+      setDetail(detailSnapshot);
+      setReplyText(trimmed);
       setDetailError(err instanceof Error ? err.message : "Failed to send message");
     } finally { setIsSending(false); }
   };
 
   const onResolve = async () => {
     if (!detail) return;
+
+    const detailSnapshot = detail;
+    const listSnapshot = conversationsRef.current;
+
     setIsResolving(true);
     setDetailError(null);
+
+    setConversations((prev) => {
+      const filtered = prev.filter((c) => c.id !== detail.id);
+      conversationsRef.current = filtered;
+      return filtered;
+    });
+    setSelectedId(null);
+
     try {
-      const resolved = await resolveConversation(detail.id);
-      setConversations((prev) => {
-        const filtered = prev.filter((c) => c.id !== resolved.id);
-        conversationsRef.current = filtered;
-        return filtered;
-      });
-      setSelectedId(null);
+      await resolveConversation(detail.id);
     } catch (err) {
+      conversationsRef.current = listSnapshot;
+      setConversations(listSnapshot);
+      setDetail(detailSnapshot);
+      setSelectedId(detailSnapshot.id);
       setDetailError(err instanceof Error ? err.message : "Failed to resolve conversation");
     } finally { setIsResolving(false); }
   };
@@ -491,8 +598,12 @@ export default function DashboardPage() {
               <div className="h-2 w-2 rounded-full bg-emerald-500" />
               <div className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />
             </div>
-            <span className="text-xs text-slate-500">Live</span>
+            <span className="text-xs text-slate-500">{socketIssue ? "Reconnecting" : "Live"}</span>
           </div>
+
+          {socketIssue && (
+            <p className="hidden text-xs text-amber-500 md:block">{socketIssue}</p>
+          )}
 
           {/* Logout */}
           <button
