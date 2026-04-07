@@ -6,6 +6,37 @@ import { useRouter } from "next/navigation";
 import { register } from "@/lib/api";
 import { getToken, setToken } from "@/lib/auth";
 
+function mapSignupErrorMessage(message: string): string {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("email already exists")) {
+    return "An account with this email already exists. Try signing in instead.";
+  }
+  if (normalized.includes("invalid hotelid")) {
+    return "Hotel ID was not recognized. Please check it with your administrator.";
+  }
+  if (normalized.includes("email, password and hotelid are required")) {
+    return "Please provide email, password, and hotel ID.";
+  }
+  if (normalized.includes("password must be at least 8 chars")) {
+    return "Password must be at least 8 characters and include letters and numbers.";
+  }
+  if (normalized.includes("role must be admin or staff")) {
+    return "Role must be either Staff or Admin.";
+  }
+  if (normalized.includes("request timed out")) {
+    return "Signup timed out. Please check your connection and try again.";
+  }
+  if (normalized.includes("unable to reach the server")) {
+    return "Cannot reach the server right now. Please try again in a moment.";
+  }
+  if (normalized.includes("registration failed")) {
+    return "Signup failed on the server. Please try again shortly.";
+  }
+
+  return message;
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -14,6 +45,7 @@ export default function SignupPage() {
   const [role, setRole] = useState<"ADMIN" | "STAFF">("STAFF");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -26,6 +58,7 @@ export default function SignupPage() {
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const result = await register({
@@ -35,9 +68,12 @@ export default function SignupPage() {
         role,
       });
       setToken(result.token);
+      setSuccess("Account created successfully. Redirecting to dashboard...");
       router.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign up failed. Please try again.");
+      const fallback = "Sign up failed. Please try again.";
+      const rawMessage = err instanceof Error ? err.message : fallback;
+      setError(mapSignupErrorMessage(rawMessage));
     } finally {
       setLoading(false);
     }
@@ -123,6 +159,12 @@ export default function SignupPage() {
           {error && (
             <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-inset ring-red-200">
               {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 ring-1 ring-inset ring-emerald-200">
+              {success}
             </div>
           )}
 
