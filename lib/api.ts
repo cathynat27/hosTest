@@ -5,6 +5,7 @@ import {
   ConversationDetail,
   LoginResponse,
   Message,
+  RegisterRequest,
 } from "@/types";
 import { TEST_USERS } from "./dev-logins";
 import { isDevLoginEnabled } from "./runtime-config";
@@ -157,6 +158,19 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return apiRequest<LoginResponse>("/api/auth/login", {
     method: "POST",
     body: { email, password },
+    requiresAuth: false,
+  });
+}
+
+export async function register(payload: RegisterRequest): Promise<LoginResponse> {
+  return apiRequest<LoginResponse>("/api/auth/register", {
+    method: "POST",
+    body: {
+      email: payload.email,
+      password: payload.password,
+      hotelId: payload.hotelId,
+      role: payload.role ?? "STAFF",
+    },
     requiresAuth: false,
   });
 }

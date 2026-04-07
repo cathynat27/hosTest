@@ -50,6 +50,13 @@ export type LoginResponse = {
   };
 };
 
+export type RegisterRequest = {
+  email: string;
+  password: string;
+  hotelId: string;
+  role?: "ADMIN" | "STAFF";
+};
+
 export type EscalationAlertPayload = {
   conversationId: string;
   hotelId: string;
