@@ -1,4 +1,7 @@
+import { AuthUser } from "@/types";
+
 const TOKEN_KEY = "hoscover_jwt";
+const USER_KEY = "hoscover_user";
 
 export class AuthTokenError extends Error {
   reason: "missing" | "expired";
@@ -52,8 +55,64 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-export function handleAuthFailure(reason: "missing" | "expired" = "expired"): never {
+export function getCurrentUser(): AuthUser | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<AuthUser>;
+    if (
+      !parsed ||
+      typeof parsed.id !== "string" ||
+      typeof parsed.email !== "string" ||
+      (parsed.role !== "ADMIN" && parsed.role !== "STAFF") ||
+      typeof parsed.hotelId !== "string"
+    ) {
+      return null;
+    }
+    return {
+      id: parsed.id,
+      email: parsed.email,
+      role: parsed.role,
+      hotelId: parsed.hotelId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function setCurrentUser(user: AuthUser): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function clearCurrentUser(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  localStorage.removeItem(USER_KEY);
+}
+
+export function setAuthSession(token: string, user: AuthUser): void {
+  setToken(token);
+  setCurrentUser(user);
+}
+
+export function clearAuthSession(): void {
   clearToken();
+  clearCurrentUser();
+}
+
+export function handleAuthFailure(reason: "missing" | "expired" = "expired"): never {
+  clearAuthSession();
 
   if (typeof window !== "undefined" && window.location.pathname !== "/login") {
     const target = reason === "missing" ? "/login?reason=missing-token" : "/login?reason=session-expired";

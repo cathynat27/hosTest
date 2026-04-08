@@ -19,12 +19,32 @@ body {
 }
 
 /* ─── Scrollbars ─────────────────────────────────────────── */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #334155 #0f172a;
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
-.light-scroll {
-  scrollbar-color: #cbd5e1 #f1f5f9;
+
+*::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 999px;
+}
+
+.light-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.light-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+.brand-grid-texture {
+  background-image: linear-gradient(#818cf8 1px, transparent 1px),
+    linear-gradient(90deg, #818cf8 1px, transparent 1px);
+  background-size: 48px 48px;
 }
 
 /* ─── Keyframes ─────────────────────────────────────────── */

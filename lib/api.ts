@@ -3,9 +3,15 @@ import { buildBackendUrl } from "@/lib/runtime-config";
 import {
   Conversation,
   ConversationDetail,
+  CreateInviteRequest,
+  CreateInviteResponse,
+  InviteTokenValidation,
   LoginResponse,
   Message,
+  OnboardHotelRequest,
+  OnboardHotelResponse,
   RegisterRequest,
+  RegisterFromInviteRequest,
 } from "@/types";
 import { TEST_USERS } from "./dev-logins";
 import { isDevLoginEnabled } from "./runtime-config";
@@ -19,6 +25,16 @@ type RequestOptions = {
   requiresAuth?: boolean;
 };
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 function extractErrorMessage(data: unknown): string | null {
   if (!data || typeof data !== "object") return null;
   const values = data as Record<string, unknown>;
@@ -26,6 +42,13 @@ function extractErrorMessage(data: unknown): string | null {
   if (typeof values.message === "string") return values.message;
   if (typeof values.detail === "string") return values.detail;
   return null;
+}
+
+function extractPayload<T>(data: unknown): T {
+  if (data && typeof data === "object" && "data" in data) {
+    return (data as { data: T }).data;
+  }
+  return data as T;
 }
 
 function ensureConversationShape(value: unknown): Conversation {
@@ -119,7 +142,7 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
     }
   }
 
-  if (response.status === 401) {
+  if (response.status === 401 && requiresAuth) {
     return handleAuthFailure("expired");
   }
 
@@ -128,14 +151,14 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
       ? "Server error. Please try again shortly."
       : "Request failed. Please try again.";
     const message = extractErrorMessage(responseBody) ?? fallback;
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   if (!isJson) {
     throw new Error("Server response format is invalid. Expected JSON.");
   }
 
-  return responseBody as T;
+  return extractPayload<T>(responseBody);
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
@@ -171,6 +194,123 @@ export async function register(payload: RegisterRequest): Promise<LoginResponse>
       hotelId: payload.hotelId,
       role: payload.role ?? "STAFF",
     },
+    requiresAuth: false,
+  });
+}
+
+function ensureOnboardHotelShape(value: unknown): OnboardHotelResponse {
+  if (!value || typeof value !== "object") {
+    throw new Error("Backend response is invalid: onboarding payload missing");
+  }
+
+  const item = value as Record<string, unknown>;
+  const hotelCode =
+    typeof item.hotelCode === "string"
+      ? item.hotelCode
+      : typeof item.code === "string"
+        ? item.code
+        : null;
+  const message =
+    typeof item.message === "string"
+      ? item.message
+      : "Hotel onboarded successfully. Invite email has been sent to the admin.";
+
+  if (!hotelCode) {
+    throw new Error("Backend response is invalid: hotel code missing");
+  }
+
+  return { hotelCode, message };
+}
+
+function ensureCreateInviteShape(value: unknown): CreateInviteResponse {
+  if (!value || typeof value !== "object") {
+    throw new Error("Backend response is invalid: invite payload missing");
+  }
+
+  const item = value as Record<string, unknown>;
+  if (
+    typeof item.email !== "string" ||
+    (item.role !== "ADMIN" && item.role !== "STAFF") ||
+    typeof item.expiresAt !== "string"
+  ) {
+    throw new Error("Backend response is invalid: invite fields are incomplete");
+  }
+
+  return {
+    email: item.email,
+    role: item.role,
+    expiresAt: item.expiresAt,
+    message:
+      typeof item.message === "string"
+        ? item.message
+        : "Invite sent successfully.",
+  };
+}
+
+function ensureInviteValidationShape(value: unknown): InviteTokenValidation {
+  if (!value || typeof value !== "object") {
+    throw new Error("Backend response is invalid: invite validation payload missing");
+  }
+
+  const item = value as Record<string, unknown>;
+  const hotel = item.hotel as Record<string, unknown> | undefined;
+
+  if (
+    typeof item.email !== "string" ||
+    (item.role !== "ADMIN" && item.role !== "STAFF") ||
+    typeof item.expiresAt !== "string" ||
+    !hotel ||
+    typeof hotel.id !== "string" ||
+    typeof hotel.code !== "string" ||
+    typeof hotel.name !== "string"
+  ) {
+    throw new Error("Backend response is invalid: invite validation fields are incomplete");
+  }
+
+  return {
+    email: item.email,
+    role: item.role,
+    expiresAt: item.expiresAt,
+    hotel: {
+      id: hotel.id,
+      code: hotel.code,
+      name: hotel.name,
+    },
+  };
+}
+
+export async function onboardHotel(payload: OnboardHotelRequest): Promise<OnboardHotelResponse> {
+  const response = await apiRequest<unknown>("/api/auth/onboard-hotel", {
+    method: "POST",
+    body: payload,
+    requiresAuth: false,
+  });
+  return ensureOnboardHotelShape(response);
+}
+
+export async function createInvite(payload: CreateInviteRequest): Promise<CreateInviteResponse> {
+  const response = await apiRequest<unknown>("/api/auth/invites", {
+    method: "POST",
+    body: {
+      email: payload.email,
+      role: payload.role ?? "STAFF",
+    },
+    requiresAuth: true,
+  });
+  return ensureCreateInviteShape(response);
+}
+
+export async function validateInviteToken(token: string): Promise<InviteTokenValidation> {
+  const response = await apiRequest<unknown>(`/api/auth/invite/${encodeURIComponent(token)}`, {
+    requiresAuth: false,
+  });
+  return ensureInviteValidationShape(response);
+}
+
+export async function registerFromInvite(payload: RegisterFromInviteRequest): Promise<LoginResponse> {
+  return apiRequest<LoginResponse>("/api/auth/register-from-invite", {
+    method: "POST",
+    body: payload,
     requiresAuth: false,
   });
 }

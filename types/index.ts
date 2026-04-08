@@ -50,11 +50,72 @@ export type LoginResponse = {
   };
 };
 
+export type UserRole = "ADMIN" | "STAFF";
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  role: UserRole;
+  hotelId: string;
+};
+
+export type AuthSession = {
+  token: string;
+  user: AuthUser;
+};
+
 export type RegisterRequest = {
   email: string;
   password: string;
   hotelId: string;
   role?: "ADMIN" | "STAFF";
+};
+
+export type OnboardHotelRequest = {
+  hotelName: string;
+  contactName?: string;
+  contactPhone: string;
+  location: string;
+  whatsappNumber: string;
+  whatsappPhoneNumberId: string;
+  whatsappAccessToken: string;
+  adminEmail: string;
+};
+
+export type OnboardHotelResponse = {
+  hotelCode: string;
+  message: string;
+};
+
+export type InviteRole = UserRole;
+
+export type CreateInviteRequest = {
+  email: string;
+  role?: InviteRole;
+};
+
+export type CreateInviteResponse = {
+  email: string;
+  role: InviteRole;
+  expiresAt: string;
+  message: string;
+};
+
+export type InviteTokenValidation = {
+  email: string;
+  role: InviteRole;
+  expiresAt: string;
+  hotel: {
+    id: string;
+    code: string;
+    name: string;
+  };
+};
+
+export type RegisterFromInviteRequest = {
+  token: string;
+  password: string;
+  fullName?: string;
 };
 
 export type EscalationAlertPayload = {

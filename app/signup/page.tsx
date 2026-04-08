@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { register } from "@/lib/api";
-import { getToken, setToken } from "@/lib/auth";
+import { getToken, setAuthSession } from "@/lib/auth";
 
 function mapSignupErrorMessage(message: string): string {
   const normalized = message.toLowerCase();
@@ -67,7 +67,7 @@ export default function SignupPage() {
         hotelId: hotelId.trim(),
         role,
       });
-      setToken(result.token);
+      setAuthSession(result.token, result.user);
       setSuccess("Account created successfully. Redirecting to dashboard...");
       router.replace("/dashboard");
     } catch (err) {
@@ -84,6 +84,13 @@ export default function SignupPage() {
       <div className="w-full max-w-[380px] rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Create account</h1>
         <p className="mt-1.5 text-sm text-slate-500">Register your staff account to access the dashboard.</p>
+        <p className="mt-2 text-xs text-slate-500">
+          If your hotel uses invites, use{" "}
+          <Link href="/signup/invite" className="font-semibold text-indigo-600 hover:text-indigo-700">
+            invite signup
+          </Link>
+          .
+        </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>

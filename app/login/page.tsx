@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getToken, setToken } from "@/lib/auth";
+import { getToken, setAuthSession } from "@/lib/auth";
 import { login } from "@/lib/api";
 import { TEST_USERS } from "@/lib/dev-logins";
 import { isDevLoginEnabled } from "@/lib/runtime-config";
@@ -66,7 +66,7 @@ export default function LoginPage() {
     setError(null);
     try {
       const result = await login(email.trim(), password);
-      setToken(result.token);
+      setAuthSession(result.token, result.user);
       router.replace("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
@@ -80,7 +80,7 @@ export default function LoginPage() {
     setError(null);
     try {
       const result = await login(email, pass);
-      setToken(result.token);
+      setAuthSession(result.token, result.user);
       router.replace("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
@@ -98,14 +98,7 @@ export default function LoginPage() {
         <div className="pointer-events-none absolute -bottom-16 right-0 h-80 w-80 rounded-full bg-indigo-900/30 blur-3xl" />
 
         {/* Grid texture */}
-        <div
-          className="absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage:
-              "linear-gradient(#818cf8 1px, transparent 1px), linear-gradient(90deg, #818cf8 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
-        />
+        <div className="brand-grid-texture absolute inset-0 opacity-[0.035]" />
 
         {/* Logo */}
         <div className="relative flex items-center gap-2.5">
@@ -340,9 +333,15 @@ export default function LoginPage() {
             For access issues, contact your hotel administrator.
           </p>
           <p className="mt-3 text-center text-xs text-slate-500">
-            Need an account?{" "}
-            <Link href="/signup" className="font-semibold text-indigo-600 hover:text-indigo-700">
-              Sign up
+            Need access?{" "}
+            <Link href="/signup/invite" className="font-semibold text-indigo-600 hover:text-indigo-700">
+              Join from invite
+            </Link>
+          </p>
+          <p className="mt-1.5 text-center text-xs text-slate-500">
+            New hotel setup?{" "}
+            <Link href="/onboarding" className="font-semibold text-indigo-600 hover:text-indigo-700">
+              Start onboarding
             </Link>
           </p>
         </div>
