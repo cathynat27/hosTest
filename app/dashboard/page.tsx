@@ -19,7 +19,6 @@ import {
   EscalationAlertPayload,
   Message,
 } from "@/types";
-import AdminInvitePanel from "./admin-invite-panel";
 
 // ─── Sorting ────────────────────────────────────────────────────────────────
 
@@ -609,6 +608,16 @@ export default function DashboardPage() {
             <p className="hidden text-xs text-amber-500 md:block">{socketIssue}</p>
           )}
 
+          {/* Onboarding (admin only) */}
+          {isAdmin && (
+            <a
+              href="/dashboard/staff-invite"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:bg-slate-800 hover:text-slate-200"
+            >
+              Onboarding
+            </a>
+          )}
+
           {/* Logout */}
           <button
             onClick={logout}
@@ -619,10 +628,6 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
-
-      <div className="border-b border-white/5 bg-slate-100 px-3 py-3 md:px-4">
-        <AdminInvitePanel isAdmin={isAdmin} />
-      </div>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1">

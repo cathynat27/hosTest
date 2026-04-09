@@ -85,7 +85,7 @@ export default function AdminInvitePanel({ isAdmin }: AdminInvitePanelProps) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
       <div className="mb-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">Admin Invites</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">Staff Invite</h3>
         <p className="mt-1 text-xs text-slate-500">
           Send secure invitation links to staff and admins. Default role is Staff.
         </p>
