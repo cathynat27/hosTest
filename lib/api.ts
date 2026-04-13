@@ -13,11 +13,7 @@ import {
   RegisterRequest,
   RegisterFromInviteRequest,
 } from "@/types";
-import { TEST_USERS } from "./dev-logins";
-import { isDevLoginEnabled } from "./runtime-config";
-
 const REQUEST_TIMEOUT_MS = 15_000;
-const ENABLE_DEV_LOGINS = isDevLoginEnabled();
 
 type RequestOptions = {
   method?: "GET" | "POST";
@@ -162,7 +158,8 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
-  if (ENABLE_DEV_LOGINS) {
+  if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN === "true") {
+    const { TEST_USERS } = await import("./dev-logins");
     const testUser = TEST_USERS.find((u) => u.email === email && u.password === password);
     if (testUser) {
       console.log(`DEV: Bypassing API for test user login: ${email}`);

@@ -3,14 +3,22 @@
 import { Fragment, FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ApiError,
   getConversationById,
   getConversations,
   replyToConversation,
   resolveConversation,
   takeoverConversation,
 } from "@/lib/api";
-import { AuthTokenError, clearAuthSession, getCurrentUser, getToken, handleAuthFailure } from "@/lib/auth";
-import { disconnectSocket, getSocket, isSocketAuthError } from "@/lib/socket";
+import {
+  AuthTokenError,
+  clearAuthSession,
+  decodeJwtPayload,
+  getCurrentUser,
+  getToken,
+  handleAuthFailure,
+} from "@/lib/auth";
+import { getSocket, isSocketAuthError } from "@/lib/socket";
 import {
   Conversation,
   ConversationDetail,
@@ -77,6 +85,25 @@ function msgDate(iso: string): string {
   if (d.toDateString() === today.toDateString()) return "Today";
   if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
+
+// ─── Escalation reason display names ────────────────────────────────────────
+
+const REASON_LABELS: Record<string, string> = {
+  rate_limit_exceeded: "Rate limit exceeded",
+  ai_failure: "AI failure",
+  low_confidence: "Low confidence",
+  emergency: "Emergency",
+  human_request: "Human requested",
+  complaint: "Complaint",
+  booking: "Booking issue",
+  repeated_frustration: "Repeated frustration",
+  escalated_state: "Guest follow-up",
+  injection_attempt: "Unusual message",
+};
+
+function formatReason(reason: string): string {
+  return REASON_LABELS[reason] ?? reason.replace(/_/g, " ");
 }
 
 // ─── Status helpers ──────────────────────────────────────────────────────────
@@ -242,6 +269,14 @@ function ChatSkeleton() {
   );
 }
 
+// ─── Toast type ──────────────────────────────────────────────────────────────
+
+type ToastData = {
+  conversationId: string;
+  guestPhone?: string;
+  reason: string;
+};
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -256,14 +291,25 @@ export default function DashboardPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isTakingOver, setIsTakingOver] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [socketIssue, setSocketIssue] = useState<string | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [reEscalationBanner, setReEscalationBanner] = useState<string | null>(null);
+  const [sessionWarning, setSessionWarning] = useState(false);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
+  // Kept in sync with selectedId on every render — safe to read inside socket handlers
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selectedId;
+  const composeInputRef = useRef<HTMLInputElement | null>(null);
+  // Stale-request guard for loadDetail
+  const loadDetailReqRef = useRef<number>(0);
+  // Tracks whether the chat scroll was near the bottom before the last message arrived
+  const wasAtBottomRef = useRef<boolean>(true);
 
   const isMobileDetailOpen = !!selectedId;
   const escalatedCount = conversations.filter((c) => c.status === "ESCALATED").length;
@@ -287,15 +333,19 @@ export default function DashboardPage() {
   };
 
   const loadDetail = async (id: string) => {
+    const reqId = ++loadDetailReqRef.current;
     setLoadingDetail(true);
     setDetailError(null);
     try {
-      setDetail(await getConversationById(id));
+      const result = await getConversationById(id);
+      if (reqId !== loadDetailReqRef.current) return; // stale — newer request superseded this
+      setDetail(result);
     } catch (err) {
+      if (reqId !== loadDetailReqRef.current) return;
       setDetailError(err instanceof Error ? err.message : "Failed to load conversation");
       setDetail(null);
     } finally {
-      setLoadingDetail(false);
+      if (reqId === loadDetailReqRef.current) setLoadingDetail(false);
     }
   };
 
@@ -306,6 +356,27 @@ export default function DashboardPage() {
     if (!token) {
       router.replace("/login");
       return;
+    }
+
+    // ── JWT expiry warning (P1-09) ─────────────────────────────────────────
+    const expireTimers: ReturnType<typeof setTimeout>[] = [];
+    const jwtPayload = decodeJwtPayload(token);
+    if (jwtPayload?.exp) {
+      const msUntilExpiry = jwtPayload.exp * 1000 - Date.now();
+      const warnAt = msUntilExpiry - 60_000;
+      if (warnAt > 0) {
+        expireTimers.push(setTimeout(() => setSessionWarning(true), warnAt));
+      } else if (msUntilExpiry > 0) {
+        setSessionWarning(true);
+      }
+      if (msUntilExpiry > 0) {
+        expireTimers.push(
+          setTimeout(() => {
+            clearAuthSession();
+            router.replace("/login?reason=session-expired");
+          }, msUntilExpiry),
+        );
+      }
     }
 
     const init = async () => {
@@ -323,10 +394,27 @@ export default function DashboardPage() {
     };
     void init();
 
-    const socket = getSocket();
+    // ── Socket init (P0-04) — wrapped in try/catch so env misconfiguration
+    //    produces a human-readable message instead of a blank screen ─────────
+    let socket: ReturnType<typeof getSocket>;
+    try {
+      socket = getSocket();
+    } catch {
+      setSocketIssue("Dashboard configuration error — contact your administrator.");
+      expireTimers.forEach(clearTimeout);
+      return;
+    }
+
+    // ── Socket event handlers ────────────────────────────────────────────────
 
     const handleEscalation = async (payload: EscalationAlertPayload) => {
-      setToast(`${payload.escalationReason.replace(/_/g, " ")}`);
+      const convInList = conversationsRef.current.find((c) => c.id === payload.conversationId);
+      setToast({
+        conversationId: payload.conversationId,
+        guestPhone: convInList?.guest.phone_number,
+        reason: payload.escalationReason,
+      });
+
       const exists = conversationsRef.current.some((c) => c.id === payload.conversationId);
       if (exists) {
         const next = sortConversations(
@@ -339,7 +427,16 @@ export default function DashboardPage() {
         conversationsRef.current = next;
         setConversations(next);
       } else {
-        try { await refreshList(); } catch { /* non-blocking */ }
+        // New guest — must appear in the list. One retry before surfacing error (P0-06).
+        try {
+          await refreshList();
+        } catch {
+          try {
+            await refreshList();
+          } catch {
+            setListError("Failed to load new escalation — refresh the page.");
+          }
+        }
       }
     };
 
@@ -351,10 +448,18 @@ export default function DashboardPage() {
           return filtered;
         });
       } else {
-        updateInList({ id: payload.conversationId, status: payload.status, assigned_staff_id: payload.assignedStaffId });
+        updateInList({
+          id: payload.conversationId,
+          status: payload.status,
+          assigned_staff_id: payload.assignedStaffId,
+        });
       }
       setDetail((prev) => {
         if (!prev || prev.id !== payload.conversationId) return prev;
+        // Detect re-escalation while staff is typing (P1-02) — show banner, keep draft
+        if (prev.status === "HUMAN_ACTIVE" && payload.status === "ESCALATED") {
+          setReEscalationBanner("This conversation was re-escalated. Take Over again to resume.");
+        }
         return { ...prev, status: payload.status, assigned_staff_id: payload.assignedStaffId };
       });
     };
@@ -382,6 +487,13 @@ export default function DashboardPage() {
           messages: [...prev.messages, message],
         };
       });
+      // Track unread count for non-selected conversations (P1-03)
+      if (message.conversation_id !== selectedIdRef.current) {
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [message.conversation_id]: (prev[message.conversation_id] ?? 0) + 1,
+        }));
+      }
     };
 
     const handleConnected = () => {
@@ -402,6 +514,8 @@ export default function DashboardPage() {
     const handleReconnectSuccess = () => {
       setSocketIssue(null);
       void refreshList();
+      // Refresh open detail view so messages from the disconnection window appear (P1-01)
+      if (selectedIdRef.current) void loadDetail(selectedIdRef.current);
     };
 
     socket.on("escalation_alert", handleEscalation);
@@ -420,24 +534,61 @@ export default function DashboardPage() {
       socket.off("connect_error", handleConnectError);
       socket.io.off("reconnect_failed", handleReconnectFailed);
       socket.io.off("reconnect", handleReconnectSuccess);
-      disconnectSocket();
+      // Socket connection itself is managed by DashboardLayout — do NOT disconnect here
+      expireTimers.forEach(clearTimeout);
     };
   }, [router]);
 
+  // ── Conversation selection ───────────────────────────────────────────────
+
   useEffect(() => {
-    if (!selectedId) { setDetail(null); return; }
+    if (!selectedId) {
+      setDetail(null);
+      return;
+    }
+    // Clear unread badge and banner for newly selected conversation (P1-03)
+    setUnreadCounts((prev) => {
+      if (!prev[selectedId]) return prev;
+      const next = { ...prev };
+      delete next[selectedId];
+      return next;
+    });
+    setReEscalationBanner(null);
+    wasAtBottomRef.current = true; // reset scroll tracking for new conversation
     void loadDetail(selectedId);
   }, [selectedId]);
 
+  // ── Toast auto-dismiss ───────────────────────────────────────────────────
+
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
+    const t = setTimeout(() => setToast(null), 5000);
     return () => clearTimeout(t);
   }, [toast]);
 
+  // ── Scroll tracking — track wasAtBottom via scroll events (P2-03) ────────
+
   useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    const el = chatRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      wasAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  });
+
+  // ── Auto-scroll to bottom only when user was already there (P2-03) ───────
+
+  useEffect(() => {
+    const el = chatRef.current;
+    if (!el) return;
+    if (wasAtBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [detail?.messages.length]);
+
+  // ── Page title ───────────────────────────────────────────────────────────
 
   useEffect(() => {
     document.title =
@@ -449,30 +600,28 @@ export default function DashboardPage() {
   const onTakeOver = async () => {
     if (!detail) return;
 
-    const detailSnapshot = detail;
-    const listSnapshot = conversationsRef.current;
-    const optimisticStatus: ConversationStatus = "HUMAN_ACTIVE";
-
     setIsTakingOver(true);
     setDetailError(null);
-
-    updateInList({
-      id: detail.id,
-      status: optimisticStatus,
-      escalation_reason: undefined,
-    });
-    setDetail((prev) => (prev ? { ...prev, status: optimisticStatus, escalation_reason: undefined } : prev));
+    // No optimistic update — apply state change only on confirmed API response (P0-09)
 
     try {
       const updated = await takeoverConversation(detail.id);
       updateInList(updated);
       setDetail((prev) => (prev ? { ...prev, ...updated } : prev));
+      setReEscalationBanner(null);
+      // Auto-focus the compose input so staff can type immediately (P1-08)
+      setTimeout(() => composeInputRef.current?.focus(), 0);
     } catch (err) {
-      conversationsRef.current = listSnapshot;
-      setConversations(listSnapshot);
-      setDetail(detailSnapshot);
-      setDetailError(err instanceof Error ? err.message : "Failed to take over conversation");
-    } finally { setIsTakingOver(false); }
+      if (err instanceof ApiError && err.status === 409) {
+        setDetailError("Claimed by another staff member — conversation updated.");
+        void refreshList();
+        if (selectedIdRef.current) void loadDetail(selectedIdRef.current);
+      } else {
+        setDetailError(err instanceof Error ? err.message : "Failed to take over conversation");
+      }
+    } finally {
+      setIsTakingOver(false);
+    }
   };
 
   const onSendReply = async (event: FormEvent<HTMLFormElement>) => {
@@ -506,7 +655,11 @@ export default function DashboardPage() {
           }
         : prev,
     );
-    updateInList({ id: detail.id, latest_message: optimisticMessage.body, last_message_at: optimisticMessage.sent_at });
+    updateInList({
+      id: detail.id,
+      latest_message: optimisticMessage.body,
+      last_message_at: optimisticMessage.sent_at,
+    });
 
     try {
       const saved = await replyToConversation(detail.id, trimmed);
@@ -529,7 +682,9 @@ export default function DashboardPage() {
       setDetail(detailSnapshot);
       setReplyText(trimmed);
       setDetailError(err instanceof Error ? err.message : "Failed to send message");
-    } finally { setIsSending(false); }
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const onResolve = async () => {
@@ -556,29 +711,62 @@ export default function DashboardPage() {
       setDetail(detailSnapshot);
       setSelectedId(detailSnapshot.id);
       setDetailError(err instanceof Error ? err.message : "Failed to resolve conversation");
-    } finally { setIsResolving(false); }
+    } finally {
+      setIsResolving(false);
+    }
   };
 
-  const logout = () => { clearAuthSession(); router.replace("/login"); };
+  const logout = () => {
+    clearAuthSession();
+    router.replace("/login");
+  };
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-slate-950">
 
-      {/* ── Toast ──────────────────────────────────────────────────────────── */}
+      {/* ── Session expiry warning banner (P1-09) ───────────────────────────── */}
+      {sessionWarning && (
+        <div className="flex flex-shrink-0 items-center justify-between gap-3 bg-amber-500/10 px-4 py-2 ring-1 ring-inset ring-amber-500/20">
+          <p className="text-xs font-medium text-amber-400">
+            Your session expires in 1 minute. Save your work.
+          </p>
+          <button
+            type="button"
+            onClick={() => { clearAuthSession(); router.replace("/login"); }}
+            className="text-xs font-semibold text-amber-300 underline hover:text-amber-200"
+          >
+            Sign in again
+          </button>
+        </div>
+      )}
+
+      {/* ── Toast (P0-08) — clickable, shows guest phone + reason ───────────── */}
       {toast && (
-        <div className="animate-toast-in pointer-events-none fixed right-4 top-4 z-50 flex items-start gap-3 rounded-xl bg-slate-900 p-3.5 pr-5 shadow-2xl ring-1 ring-white/10">
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedId(toast.conversationId);
+            setToast(null);
+          }}
+          className="animate-toast-in fixed right-4 top-4 z-50 flex items-start gap-3 rounded-xl bg-slate-900 p-3.5 pr-5 shadow-2xl ring-1 ring-white/10 transition-opacity hover:opacity-90"
+        >
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-red-500/20">
             <IconAlert className="h-4 w-4 text-red-400" />
           </div>
-          <div>
+          <div className="text-left">
             <p className="text-[11px] font-bold uppercase tracking-widest text-red-400">
               New Escalation
             </p>
-            <p className="mt-0.5 text-sm font-medium capitalize text-white">{toast}</p>
+            {toast.guestPhone && (
+              <p className="mt-0.5 text-sm font-semibold text-white">
+                {formatPhone(toast.guestPhone)}
+              </p>
+            )}
+            <p className="mt-px text-xs capitalize text-slate-400">{formatReason(toast.reason)}</p>
           </div>
-        </div>
+        </button>
       )}
 
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
@@ -595,11 +783,17 @@ export default function DashboardPage() {
 
         {/* Right */}
         <div className="flex items-center gap-5">
-          {/* Live indicator */}
+          {/* Live indicator (P0-07) — amber when disconnected, emerald when live */}
           <div className="flex items-center gap-1.5">
             <div className="relative h-2 w-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-500" />
-              <div className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />
+              {socketIssue ? (
+                <div className="h-2 w-2 rounded-full bg-amber-500" />
+              ) : (
+                <>
+                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <div className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />
+                </>
+              )}
             </div>
             <span className="text-xs text-slate-500">{socketIssue ? "Reconnecting" : "Live"}</span>
           </div>
@@ -620,6 +814,7 @@ export default function DashboardPage() {
 
           {/* Logout */}
           <button
+            type="button"
             onClick={logout}
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:bg-slate-800 hover:text-slate-200"
           >
@@ -683,9 +878,11 @@ export default function DashboardPage() {
                 const meta = statusMeta(conv.status);
                 const isSelected = selectedId === conv.id;
                 const isEscalated = conv.status === "ESCALATED";
+                const unreadCount = unreadCounts[conv.id] ?? 0;
 
                 return (
                   <button
+                    type="button"
                     key={conv.id}
                     onClick={() => setSelectedId(conv.id)}
                     className={`group w-full rounded-lg border-l-2 p-3 text-left transition-all ${meta.cardBorder} ${
@@ -720,9 +917,17 @@ export default function DashboardPage() {
                           <p className="truncate text-sm font-semibold text-slate-100">
                             {formatPhone(conv.guest.phone_number)}
                           </p>
-                          <span className="flex-shrink-0 text-[10px] tabular-nums text-slate-600">
-                            {relativeTime(conv.last_message_at)}
-                          </span>
+                          <div className="flex flex-shrink-0 items-center gap-1.5">
+                            {/* Unread badge (P1-03) */}
+                            {unreadCount > 0 && (
+                              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
+                                {unreadCount}
+                              </span>
+                            )}
+                            <span className="text-[10px] tabular-nums text-slate-600">
+                              {relativeTime(conv.last_message_at)}
+                            </span>
+                          </div>
                         </div>
 
                         <p className="mt-0.5 truncate text-xs text-slate-500">
@@ -735,7 +940,7 @@ export default function DashboardPage() {
                           </span>
                           {conv.escalation_reason && (
                             <span className="truncate text-[10px] text-slate-600">
-                              · {conv.escalation_reason.replace(/_/g, " ")}
+                              · {formatReason(conv.escalation_reason)}
                             </span>
                           )}
                         </div>
@@ -774,6 +979,7 @@ export default function DashboardPage() {
               <div className="flex flex-shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
                 {/* Back (mobile) */}
                 <button
+                  type="button"
                   onClick={() => setSelectedId(null)}
                   className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 md:hidden"
                   title="Back"
@@ -825,7 +1031,7 @@ export default function DashboardPage() {
                     <p className="mt-px text-[11px] text-slate-500">
                       Escalation reason ·{" "}
                       <span className="font-medium capitalize text-slate-700">
-                        {detail.escalation_reason.replace(/_/g, " ")}
+                        {formatReason(detail.escalation_reason)}
                       </span>
                     </p>
                   )}
@@ -835,6 +1041,7 @@ export default function DashboardPage() {
                 <div className="flex flex-shrink-0 items-center gap-2">
                   {detail?.status === "ESCALATED" && (
                     <button
+                      type="button"
                       onClick={onTakeOver}
                       disabled={isTakingOver}
                       className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition-all hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-indigo-400"
@@ -845,6 +1052,7 @@ export default function DashboardPage() {
                   )}
                   {detail?.status === "HUMAN_ACTIVE" && (
                     <button
+                      type="button"
                       onClick={onResolve}
                       disabled={isResolving}
                       className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-400"
@@ -855,6 +1063,20 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
+
+              {/* Re-escalation banner (P1-02) */}
+              {reEscalationBanner && (
+                <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2.5">
+                  <p className="text-xs font-medium text-amber-800">{reEscalationBanner}</p>
+                  <button
+                    type="button"
+                    onClick={() => setReEscalationBanner(null)}
+                    className="text-xs text-amber-600 underline hover:text-amber-800"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
 
               {/* Error banner */}
               {detailError && (
@@ -880,6 +1102,7 @@ export default function DashboardPage() {
                           new Date(prev.sent_at).toDateString();
                       const isStaff = msg.sender_type === "staff";
                       const isAI = msg.sender_type === "ai";
+                      const isGuest = msg.sender_type === "guest";
 
                       return (
                         <Fragment key={msg.id}>
@@ -924,6 +1147,18 @@ export default function DashboardPage() {
                                 {msg.body}
                               </div>
 
+                              {/* AI Draft (not sent) — shown on guest messages when AI had a draft (P1-04) */}
+                              {isGuest && msg.ai_draft_text && (
+                                <details className="mt-1.5">
+                                  <summary className="cursor-pointer select-none text-[10px] font-medium text-indigo-400 hover:text-indigo-300">
+                                    AI Draft (not sent)
+                                  </summary>
+                                  <div className="mt-1 rounded-xl bg-indigo-50 px-3 py-2 text-xs italic text-indigo-700 ring-1 ring-inset ring-indigo-100">
+                                    {msg.ai_draft_text}
+                                  </div>
+                                </details>
+                              )}
+
                               {/* Time */}
                               <p
                                 className={`mt-1 text-[10px] text-slate-400 ${isStaff ? "text-right" : "text-left"}`}
@@ -946,7 +1181,7 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Compose */}
+              {/* Compose (P1-08 — ref added for auto-focus after takeover) */}
               {detail?.status === "HUMAN_ACTIVE" && (
                 <form
                   onSubmit={onSendReply}
@@ -954,6 +1189,7 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-center gap-2.5">
                     <input
+                      ref={composeInputRef}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       placeholder="Type your reply to the guest…"

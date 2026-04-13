@@ -8,7 +8,9 @@ export type EscalationReason =
   | "human_request"
   | "complaint"
   | "booking"
-  | "repeated_frustration";
+  | "repeated_frustration"
+  | "escalated_state"
+  | "injection_attempt";
 
 export type Guest = {
   id: string;

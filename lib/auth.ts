@@ -13,7 +13,7 @@ export class AuthTokenError extends Error {
   }
 }
 
-function decodeJwtPayload(token: string): { exp?: number } | null {
+export function decodeJwtPayload(token: string): { exp?: number } | null {
   const parts = token.split(".");
   if (parts.length < 2) return null;
 

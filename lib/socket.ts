@@ -67,5 +67,6 @@ export function getSocket(): Socket {
 export function disconnectSocket(): void {
   if (socketInstance) {
     socketInstance.disconnect();
+    socketInstance = null;
   }
 }
