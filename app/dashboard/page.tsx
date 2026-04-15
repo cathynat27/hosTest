@@ -295,6 +295,7 @@ export default function DashboardPage() {
   const [isSending, setIsSending] = useState(false);
   const [isTakingOver, setIsTakingOver] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
+  const [showResolveConfirm, setShowResolveConfirm] = useState(false);
   const [socketIssue, setSocketIssue] = useState<string | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [reEscalationBanner, setReEscalationBanner] = useState<string | null>(null);
@@ -302,6 +303,8 @@ export default function DashboardPage() {
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
+  // Tracks real message IDs we sent so the socket echo doesn't create a duplicate bubble (CF-01)
+  const pendingSentIds = useRef<Set<string>>(new Set());
   // Kept in sync with selectedId on every render — safe to read inside socket handlers
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
@@ -414,6 +417,14 @@ export default function DashboardPage() {
         guestPhone: convInList?.guest.phone_number,
         reason: payload.escalationReason,
       });
+      // Browser notification so staff don't miss escalations when the tab is in background (UX-01)
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        const phone = convInList?.guest.phone_number;
+        new Notification("Guest Needs Attention", {
+          body: `${phone ? formatPhone(phone) : "Guest"} — ${formatReason(payload.escalationReason)}`,
+          tag: "escalation",
+        });
+      }
 
       const exists = conversationsRef.current.some((c) => c.id === payload.conversationId);
       if (exists) {
@@ -448,6 +459,12 @@ export default function DashboardPage() {
           return filtered;
         });
       } else {
+        if (!conversationsRef.current.some((c) => c.id === payload.conversationId)) {
+          void refreshList().catch(() => {
+            setListError("Failed to sync realtime updates. Please refresh.");
+          });
+          return;
+        }
         updateInList({
           id: payload.conversationId,
           status: payload.status,
@@ -465,8 +482,15 @@ export default function DashboardPage() {
     };
 
     const handleNewMessage = (message: Message) => {
+      if (!conversationsRef.current.some((c) => c.id === message.conversation_id)) {
+        void refreshList().catch(() => {
+          setListError("Failed to sync realtime updates. Please refresh.");
+        });
+        return;
+      }
+
+      // Always update the sidebar preview regardless of source
       setConversations((prev) => {
-        if (!prev.some((c) => c.id === message.conversation_id)) return prev;
         const next = sortConversations(
           prev.map((c) =>
             c.id === message.conversation_id
@@ -477,6 +501,11 @@ export default function DashboardPage() {
         conversationsRef.current = next;
         return next;
       });
+      // If this is a message we already applied via optimistic update, skip the detail insert (CF-01)
+      if (pendingSentIds.current.has(message.id)) {
+        pendingSentIds.current.delete(message.id);
+        return;
+      }
       setDetail((prev) => {
         if (!prev || prev.id !== message.conversation_id) return prev;
         if (prev.messages.some((m) => m.id === message.id)) return prev;
@@ -515,7 +544,21 @@ export default function DashboardPage() {
       setSocketIssue(null);
       void refreshList();
       // Refresh open detail view so messages from the disconnection window appear (P1-01)
-      if (selectedIdRef.current) void loadDetail(selectedIdRef.current);
+      // RT-03: if the conversation was resolved while disconnected, handle 404 gracefully
+      if (selectedIdRef.current) {
+        const id = selectedIdRef.current;
+        getConversationById(id)
+          .then((result) => setDetail(result))
+          .catch((err) => {
+            if (err instanceof ApiError && err.status === 404) {
+              setSelectedId(null);
+              setDetail(null);
+              setDetailError("This conversation was resolved by another staff member.");
+            } else {
+              void loadDetail(id);
+            }
+          });
+      }
     };
 
     socket.on("escalation_alert", handleEscalation);
@@ -554,6 +597,7 @@ export default function DashboardPage() {
       return next;
     });
     setReEscalationBanner(null);
+    setShowResolveConfirm(false);
     wasAtBottomRef.current = true; // reset scroll tracking for new conversation
     void loadDetail(selectedId);
   }, [selectedId]);
@@ -566,7 +610,16 @@ export default function DashboardPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  // ── Browser notification permission (UX-01) ──────────────────────────────
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      void Notification.requestPermission();
+    }
+  }, []);
+
   // ── Scroll tracking — track wasAtBottom via scroll events (P2-03) ────────
+  // Dep array on selectedId so the listener re-attaches when a new conversation is opened (CF-02)
 
   useEffect(() => {
     const el = chatRef.current;
@@ -576,7 +629,7 @@ export default function DashboardPage() {
     };
     el.addEventListener("scroll", handleScroll, { passive: true });
     return () => el.removeEventListener("scroll", handleScroll);
-  });
+  }, [selectedId]);
 
   // ── Auto-scroll to bottom only when user was already there (P2-03) ───────
 
@@ -663,6 +716,8 @@ export default function DashboardPage() {
 
     try {
       const saved = await replyToConversation(detail.id, trimmed);
+      // Register the real ID before updating state so the socket echo (CF-01) is deduped
+      pendingSentIds.current.add(saved.id);
       setDetail((prev) =>
         prev
           ? {
@@ -1039,7 +1094,7 @@ export default function DashboardPage() {
 
                 {/* Action buttons */}
                 <div className="flex flex-shrink-0 items-center gap-2">
-                  {detail?.status === "ESCALATED" && (
+                  {(detail?.status === "ESCALATED" || detail?.status === "ACTIVE_AI") && (
                     <button
                       type="button"
                       onClick={onTakeOver}
@@ -1050,16 +1105,37 @@ export default function DashboardPage() {
                       {isTakingOver ? "Taking over…" : "Take Over"}
                     </button>
                   )}
-                  {detail?.status === "HUMAN_ACTIVE" && (
+                  {detail?.status === "HUMAN_ACTIVE" && !showResolveConfirm && (
                     <button
                       type="button"
-                      onClick={onResolve}
+                      onClick={() => setShowResolveConfirm(true)}
                       disabled={isResolving}
                       className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-400"
                     >
                       <IconCheck className="h-3.5 w-3.5" />
-                      {isResolving ? "Resolving…" : "Resolve"}
+                      Resolve
                     </button>
+                  )}
+                  {detail?.status === "HUMAN_ACTIVE" && showResolveConfirm && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500">Mark as resolved?</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowResolveConfirm(false)}
+                        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowResolveConfirm(false); void onResolve(); }}
+                        disabled={isResolving}
+                        className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-400"
+                      >
+                        <IconCheck className="h-3 w-3" />
+                        {isResolving ? "Resolving…" : "Confirm"}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1182,22 +1258,29 @@ export default function DashboardPage() {
               </div>
 
               {/* Compose (P1-08 — ref added for auto-focus after takeover) */}
-              {detail?.status === "HUMAN_ACTIVE" && (
+              {/* UX-04: also shown in ESCALATED so staff can draft while reading */}
+              {(detail?.status === "HUMAN_ACTIVE" || detail?.status === "ESCALATED") && (
                 <form
-                  onSubmit={onSendReply}
+                  onSubmit={detail?.status === "HUMAN_ACTIVE" ? onSendReply : (e) => e.preventDefault()}
                   className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-3"
                 >
+                  {detail?.status === "ESCALATED" && (
+                    <p className="mb-2 text-xs text-amber-600">
+                      Take over this conversation to send your reply.
+                    </p>
+                  )}
                   <div className="flex items-center gap-2.5">
                     <input
                       ref={composeInputRef}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Type your reply to the guest…"
-                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                      placeholder={detail?.status === "ESCALATED" ? "Draft your reply…" : "Type your reply to the guest…"}
+                      disabled={detail?.status === "ESCALATED"}
+                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:cursor-text disabled:opacity-60"
                     />
                     <button
                       type="submit"
-                      disabled={isSending || !replyText.trim()}
+                      disabled={isSending || !replyText.trim() || detail?.status === "ESCALATED"}
                       className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/25 transition-all hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-indigo-300"
                     >
                       {isSending ? (

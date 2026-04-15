@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getToken, setAuthSession } from "@/lib/auth";
 import { login } from "@/lib/api";
-import { TEST_USERS } from "@/lib/dev-logins";
 import { isDevLoginEnabled } from "@/lib/runtime-config";
 
 function HotelIcon({ className }: { className?: string }) {
@@ -48,6 +47,8 @@ const FEATURES = [
 
 const ENABLE_DEV_LOGINS = isDevLoginEnabled();
 
+type TestUser = { email: string; password: string; label: string };
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -55,6 +56,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [testUsers, setTestUsers] = useState<TestUser[]>([]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" && ENABLE_DEV_LOGINS) {
+      import("@/lib/dev-logins").then((mod) => setTestUsers(mod.TEST_USERS));
+    }
+  }, []);
 
   useEffect(() => {
     if (getToken()) router.replace("/dashboard");
@@ -169,7 +177,7 @@ export default function LoginPage() {
             <div className="mb-4 space-y-2">
               <p className="text-xs font-bold uppercase text-slate-400">Quick Logins (Dev only)</p>
               <div className="flex gap-2">
-                {TEST_USERS.map((user) => (
+                {testUsers.map((user) => (
                   <button
                     key={user.email}
                     type="button"

@@ -3,6 +3,20 @@ import { AuthUser } from "@/types";
 const TOKEN_KEY = "hoscover_jwt";
 const USER_KEY = "hoscover_user";
 
+// Cookie helpers — keep JWT in a cookie so Next.js middleware can read it on the server.
+// This is a client-set cookie (not httpOnly); the full httpOnly fix requires the backend to
+// set Set-Cookie on login (CF-04). This is the frontend half that enables the CF-03 route guard.
+function setJwtCookie(value: string): void {
+  if (typeof document === "undefined") return;
+  const maxAge = 60 * 60 * 24 * 7; // 7 days
+  document.cookie = `${TOKEN_KEY}=${encodeURIComponent(value)}; path=/; SameSite=Strict; max-age=${maxAge}`;
+}
+
+function clearJwtCookie(): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${TOKEN_KEY}=; path=/; SameSite=Strict; max-age=0`;
+}
+
 export class AuthTokenError extends Error {
   reason: "missing" | "expired";
 
@@ -46,6 +60,7 @@ export function setToken(token: string): void {
     return;
   }
   localStorage.setItem(TOKEN_KEY, token);
+  setJwtCookie(token);
 }
 
 export function clearToken(): void {
@@ -53,6 +68,7 @@ export function clearToken(): void {
     return;
   }
   localStorage.removeItem(TOKEN_KEY);
+  clearJwtCookie();
 }
 
 export function getCurrentUser(): AuthUser | null {
