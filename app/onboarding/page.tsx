@@ -53,6 +53,7 @@ const initialForm: OnboardHotelRequest = {
   whatsappPhoneNumberId: "",
   whatsappAccessToken: "",
   adminEmail: "",
+  knowledge_text: "",
 };
 
 export default function HotelOnboardingPage() {
@@ -226,6 +227,23 @@ export default function HotelOnboardingPage() {
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
               />
               {errors.adminEmail && <p className="mt-1 text-xs text-red-600">{errors.adminEmail}</p>}
+            </div>
+
+            <div className="md:col-span-2">
+              <label htmlFor="knowledge_text" className="mb-1.5 block text-sm font-medium text-slate-700">
+                Knowledge Base <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <textarea
+                id="knowledge_text"
+                rows={6}
+                value={form.knowledge_text ?? ""}
+                onChange={(event) => setForm((prev) => ({ ...prev, knowledge_text: event.target.value }))}
+                placeholder="Add policies, amenities, check-in/out rules, pricing notes, FAQ answers, and local details."
+                className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                This text trains the AI on your hotel. You can update it later from the hotel settings.
+              </p>
             </div>
           </div>
 

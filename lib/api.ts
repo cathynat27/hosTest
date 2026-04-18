@@ -19,6 +19,7 @@ type RequestOptions = {
   method?: "GET" | "POST";
   body?: unknown;
   requiresAuth?: boolean;
+  extraHeaders?: Record<string, string>;
 };
 
 export class ApiError extends Error {
@@ -87,13 +88,14 @@ function ensureConversationDetailShape(value: unknown): ConversationDetail {
 }
 
 async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, requiresAuth = true } = options;
+  const { method = "GET", body, requiresAuth = true, extraHeaders } = options;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",
+    ...extraHeaders,
   };
 
   if (requiresAuth) {
@@ -277,10 +279,19 @@ function ensureInviteValidationShape(value: unknown): InviteTokenValidation {
 }
 
 export async function onboardHotel(payload: OnboardHotelRequest): Promise<OnboardHotelResponse> {
+  const secret = process.env.NEXT_PUBLIC_SUPERADMIN_SECRET;
+  const extraHeaders: Record<string, string> = secret
+    ? { "x-superadmin-secret": secret }
+    : {};
+
   const response = await apiRequest<unknown>("/api/auth/onboard-hotel", {
     method: "POST",
-    body: payload,
+    body: {
+      ...payload,
+      knowledge_text: payload.knowledge_text?.trim() || undefined,
+    },
     requiresAuth: false,
+    extraHeaders,
   });
   return ensureOnboardHotelShape(response);
 }
