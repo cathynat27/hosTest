@@ -40,6 +40,7 @@ function validatePayload(payload: OnboardHotelRequest): OnboardingErrors {
   if (!payload.whatsappPhoneNumberId.trim()) errors.whatsappPhoneNumberId = "Phone number ID is required.";
   if (!payload.whatsappAccessToken.trim()) errors.whatsappAccessToken = "WhatsApp access token is required.";
   if (!payload.adminEmail.trim()) errors.adminEmail = "Admin email is required.";
+  if (!payload.knowledge_text?.trim()) errors.knowledge_text = "Knowledge base is required.";
 
   return errors;
 }
@@ -231,18 +232,33 @@ export default function HotelOnboardingPage() {
 
             <div className="md:col-span-2">
               <label htmlFor="knowledge_text" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Knowledge Base <span className="font-normal text-slate-400">(optional)</span>
+                Hotel Knowledge Base *
               </label>
+              <p className="mb-2 text-xs text-slate-500 leading-relaxed">
+                This is the information your AI assistant uses to answer guest questions over WhatsApp.
+                Write it in plain English — the more detail you provide, the better the AI will perform.
+                Cover things like:
+              </p>
+              <ul className="mb-2 list-disc pl-4 text-xs text-slate-500 space-y-0.5">
+                <li><span className="font-medium text-slate-600">Check-in / check-out</span> — times, early check-in policy, late check-out fees</li>
+                <li><span className="font-medium text-slate-600">Room types & amenities</span> — what each room includes, bed types, views, capacity</li>
+                <li><span className="font-medium text-slate-600">Pricing & offers</span> — room rates, seasonal deals, what's included in the rate</li>
+                <li><span className="font-medium text-slate-600">Facilities</span> — pool, gym, spa, restaurant hours, parking, Wi-Fi details</li>
+                <li><span className="font-medium text-slate-600">Policies</span> — cancellation, pets, children, smoking, extra guests</li>
+                <li><span className="font-medium text-slate-600">Location & transport</span> — address, nearest airport, taxi/shuttle options, landmarks nearby</li>
+                <li><span className="font-medium text-slate-600">Common FAQs</span> — anything guests ask repeatedly at front desk or via WhatsApp</li>
+              </ul>
               <textarea
                 id="knowledge_text"
-                rows={6}
+                rows={8}
                 value={form.knowledge_text ?? ""}
                 onChange={(event) => setForm((prev) => ({ ...prev, knowledge_text: event.target.value }))}
-                placeholder="Add policies, amenities, check-in/out rules, pricing notes, FAQ answers, and local details."
+                placeholder={`Example:\nCheck-in is from 2:00 PM and check-out is by 11:00 AM. Early check-in can be arranged for an extra $20 subject to availability.\n\nWe have 3 room types: Standard (1 queen bed), Deluxe (1 king bed, garden view), and Suite (king bed, living area, sea view). All rooms include free Wi-Fi, air conditioning, flat-screen TV, and daily housekeeping.\n\nThe swimming pool is open 7 AM – 9 PM. The restaurant serves breakfast (7–10 AM), lunch (12–3 PM), and dinner (6–10 PM).\n\nWe are located at 12 Palm Avenue, 5 km from Entebbe International Airport. Free airport shuttle available on request.`}
                 className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
               />
+              {errors.knowledge_text && <p className="mt-1 text-xs text-red-600">{errors.knowledge_text}</p>}
               <p className="mt-1 text-xs text-slate-400">
-                This text trains the AI on your hotel. You can update it later from the hotel settings.
+                The more complete this is, the fewer guest questions will need human intervention.
               </p>
             </div>
           </div>

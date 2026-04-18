@@ -288,7 +288,7 @@ export async function onboardHotel(payload: OnboardHotelRequest): Promise<Onboar
     method: "POST",
     body: {
       ...payload,
-      knowledge_text: payload.knowledge_text?.trim() || undefined,
+      knowledge_text: payload.knowledge_text.trim() || undefined,
     },
     requiresAuth: false,
     extraHeaders,

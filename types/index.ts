@@ -82,7 +82,7 @@ export type OnboardHotelRequest = {
   whatsappPhoneNumberId: string;
   whatsappAccessToken: string;
   adminEmail: string;
-  knowledge_text?: string;
+  knowledge_text: string;
 };
 
 export type OnboardHotelResponse = {
