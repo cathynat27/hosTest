@@ -28,6 +28,8 @@ import {
   Message,
 } from "@/types";
 
+type ConversationFilter = "ALL" | ConversationStatus;
+
 // ─── Sorting ────────────────────────────────────────────────────────────────
 
 const STATUS_ORDER: Record<ConversationStatus, number> = {
@@ -300,6 +302,8 @@ export default function DashboardPage() {
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [reEscalationBanner, setReEscalationBanner] = useState<string | null>(null);
   const [sessionWarning, setSessionWarning] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<ConversationFilter>("ALL");
+  const [searchFilter, setSearchFilter] = useState("");
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
@@ -315,7 +319,25 @@ export default function DashboardPage() {
   const wasAtBottomRef = useRef<boolean>(true);
 
   const isMobileDetailOpen = !!selectedId;
-  const escalatedCount = conversations.filter((c) => c.status === "ESCALATED").length;
+  const normalizedSearch = searchFilter.trim().toLowerCase();
+  const filteredConversations = conversations.filter((conv) => {
+    const statusMatches = statusFilter === "ALL" || conv.status === statusFilter;
+    if (!statusMatches) return false;
+
+    if (!normalizedSearch) return true;
+
+    const haystack = [
+      conv.guest.phone_number,
+      conv.latest_message,
+      conv.escalation_reason,
+      formatReason(conv.escalation_reason ?? ""),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(normalizedSearch);
+  });
+  const escalatedCount = filteredConversations.filter((c) => c.status === "ESCALATED").length;
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -825,7 +847,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
-      <header className="glass-card flex h-14 flex-shrink-0 items-center justify-between rounded-2xl px-4 sm:px-5">
+      <header className="glass-card flex flex-shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 sm:h-14 sm:flex-nowrap sm:px-5 sm:py-0">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 shadow shadow-slate-900/25">
@@ -837,9 +859,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-5">
+        <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:gap-4">
           {/* Live indicator (P0-07) — amber when disconnected, emerald when live */}
-          <div className="flex items-center gap-1.5">
+          <div className="hidden items-center gap-1.5 sm:flex">
             <div className="relative h-2 w-2">
               {socketIssue ? (
                 <div className="h-2 w-2 rounded-full bg-amber-500" />
@@ -861,7 +883,7 @@ export default function DashboardPage() {
           {isAdmin && (
             <a
               href="/dashboard/staff-invite"
-              className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs"
+              className="btn-secondary inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs"
             >
               Onboarding
             </a>
@@ -871,7 +893,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={logout}
-            className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs"
+            className="btn-secondary inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs"
           >
             <IconLogout className="h-3.5 w-3.5" />
             Sign out
@@ -880,11 +902,11 @@ export default function DashboardPage() {
       </header>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className="mt-3 flex min-h-0 flex-1 gap-3">
+      <div className="mt-3 flex min-h-0 flex-1 justify-center gap-3 md:justify-start">
 
         {/* ── Sidebar ──────────────────────────────────────────────────────── */}
         <aside
-          className={`glass-card flex w-[325px] flex-shrink-0 flex-col overflow-hidden rounded-2xl ${
+          className={`glass-card flex w-full max-w-[640px] flex-shrink-0 flex-col overflow-hidden rounded-2xl md:w-[325px] md:max-w-none ${
             isMobileDetailOpen ? "hidden md:flex" : "flex"
           }`}
         >
@@ -896,7 +918,7 @@ export default function DashboardPage() {
               </h2>
               {!loadingList && conversations.length > 0 && (
                 <span className="rounded-full bg-blue-600 px-1.5 py-px text-[10px] font-bold text-white">
-                  {conversations.length}
+                  {filteredConversations.length}
                 </span>
               )}
             </div>
@@ -906,6 +928,37 @@ export default function DashboardPage() {
                 {escalatedCount} urgent
               </span>
             )}
+          </div>
+
+          <div className="border-b border-slate-200/70 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {([
+                { key: "ALL", label: "All" },
+                { key: "ESCALATED", label: "Escalated" },
+                { key: "HUMAN_ACTIVE", label: "In Progress" },
+                { key: "ACTIVE_AI", label: "AI" },
+              ] as Array<{ key: ConversationFilter; label: string }>).map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setStatusFilter(option.key)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                    statusFilter === option.key
+                      ? "bg-slate-900 text-white"
+                      : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              value={searchFilter}
+              onChange={(event) => setSearchFilter(event.target.value)}
+              placeholder="Search phone, message, or reason..."
+              className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            />
           </div>
 
           {/* List */}
@@ -918,18 +971,18 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {!loadingList && !listError && conversations.length === 0 && (
+            {!loadingList && !listError && filteredConversations.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-800">
                   <IconChat className="h-6 w-6 text-slate-500" />
                 </div>
-                <p className="text-sm text-slate-600">No active conversations</p>
-                <p className="text-xs text-slate-500">Escalations will appear here in real time</p>
+                <p className="text-sm text-slate-600">No matching conversations</p>
+                <p className="text-xs text-slate-500">Try another filter or search term</p>
               </div>
             )}
 
             <div className="space-y-px px-2">
-              {conversations.map((conv) => {
+              {filteredConversations.map((conv) => {
                 const meta = statusMeta(conv.status);
                 const isSelected = selectedId === conv.id;
                 const isEscalated = conv.status === "ESCALATED";
