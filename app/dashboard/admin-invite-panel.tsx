@@ -83,17 +83,17 @@ export default function AdminInvitePanel({ isAdmin }: AdminInvitePanelProps) {
   };
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-      <div className="mb-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">Staff Invite</h3>
-        <p className="mt-1 text-xs text-slate-500">
+    <section className="glass-card rounded-3xl p-4 md:p-6">
+      <div className="mb-5">
+        <h3 className="card-title text-lg font-semibold">Invite teammates</h3>
+        <p className="mt-1 text-sm text-slate-600">
           Send secure invitation links to staff and admins. Default role is Staff.
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-[1fr_130px_auto] md:items-end">
+      <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-[1fr_150px_auto] md:items-end">
         <div>
-          <label htmlFor="invite-email" className="mb-1.5 block text-xs font-medium text-slate-700">
+          <label htmlFor="invite-email" className="ui-label">
             Invite Email
           </label>
           <input
@@ -103,19 +103,19 @@ export default function AdminInvitePanel({ isAdmin }: AdminInvitePanelProps) {
             onChange={(event) => setEmail(event.target.value)}
             required
             placeholder="new.staff@hotel.com"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+            className="ui-input"
           />
         </div>
 
         <div>
-          <label htmlFor="invite-role" className="mb-1.5 block text-xs font-medium text-slate-700">
+          <label htmlFor="invite-role" className="ui-label">
             Role
           </label>
           <select
             id="invite-role"
             value={role}
             onChange={(event) => setRole(event.target.value as InviteRole)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+            className="ui-input"
           >
             <option value="STAFF">Staff</option>
             <option value="ADMIN">Admin</option>
@@ -125,20 +125,20 @@ export default function AdminInvitePanel({ isAdmin }: AdminInvitePanelProps) {
         <button
           type="submit"
           disabled={loading}
-          className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+          className="btn-primary px-4 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "Sending..." : `Send ${roleLabel} Invite`}
         </button>
       </form>
 
       {error && (
-        <div className="mt-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+        <div className="mt-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700 ring-1 ring-red-200">
           {error}
         </div>
       )}
 
       {result && (
-        <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 ring-1 ring-inset ring-emerald-200">
+        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
           <p className="text-sm font-medium text-emerald-800">Invite sent to {result.email}</p>
           <p className="mt-1 text-xs text-emerald-700">
             Expires on {formatExpiry(result.expiresAt)}.

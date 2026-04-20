@@ -123,37 +123,37 @@ function statusMeta(status: ConversationStatus): StatusMeta {
       return {
         label: "Escalated",
         cardBorder: "border-l-red-500",
-        badge: "bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-500/20",
-        avatar: "bg-red-500/15 text-red-400",
+        badge: "bg-red-50 text-red-700 ring-1 ring-red-200",
+        avatar: "bg-red-100 text-red-700",
         dot: "bg-red-500",
-        reasonTag: "bg-red-500/10 text-red-400",
+        reasonTag: "bg-red-50 text-red-700 ring-1 ring-red-200",
       };
     case "HUMAN_ACTIVE":
       return {
         label: "In Progress",
         cardBorder: "border-l-amber-500",
-        badge: "bg-amber-500/15 text-amber-400 ring-1 ring-inset ring-amber-500/20",
-        avatar: "bg-amber-500/15 text-amber-400",
+        badge: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+        avatar: "bg-amber-100 text-amber-700",
         dot: "bg-amber-500",
-        reasonTag: "bg-amber-500/10 text-amber-400",
+        reasonTag: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
       };
     case "ACTIVE_AI":
       return {
         label: "AI",
-        cardBorder: "border-l-slate-600",
-        badge: "bg-slate-700/80 text-slate-400 ring-1 ring-inset ring-slate-600/30",
-        avatar: "bg-slate-700 text-slate-400",
-        dot: "bg-slate-500",
-        reasonTag: "bg-slate-700 text-slate-400",
+        cardBorder: "border-l-sky-500",
+        badge: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+        avatar: "bg-sky-100 text-sky-700",
+        dot: "bg-sky-500",
+        reasonTag: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
       };
     default:
       return {
         label: "Resolved",
         cardBorder: "border-l-emerald-600",
-        badge: "bg-emerald-500/15 text-emerald-400 ring-1 ring-inset ring-emerald-500/20",
-        avatar: "bg-emerald-500/15 text-emerald-400",
+        badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+        avatar: "bg-emerald-100 text-emerald-700",
         dot: "bg-emerald-500",
-        reasonTag: "bg-emerald-500/10 text-emerald-400",
+        reasonTag: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
       };
   }
 }
@@ -779,11 +779,11 @@ export default function DashboardPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <main className="flex h-screen flex-col overflow-hidden bg-slate-950">
+    <main className="app-shell flex h-screen flex-col overflow-hidden p-3 sm:p-5">
 
       {/* ── Session expiry warning banner (P1-09) ───────────────────────────── */}
       {sessionWarning && (
-        <div className="flex flex-shrink-0 items-center justify-between gap-3 bg-amber-500/10 px-4 py-2 ring-1 ring-inset ring-amber-500/20">
+        <div className="flex flex-shrink-0 items-center justify-between gap-3 rounded-xl bg-amber-500/12 px-4 py-2 ring-1 ring-amber-500/20">
           <p className="text-xs font-medium text-amber-400">
             Your session expires in 1 minute. Save your work.
           </p>
@@ -805,7 +805,7 @@ export default function DashboardPage() {
             setSelectedId(toast.conversationId);
             setToast(null);
           }}
-          className="animate-toast-in fixed right-4 top-4 z-50 flex items-start gap-3 rounded-xl bg-slate-900 p-3.5 pr-5 shadow-2xl ring-1 ring-white/10 transition-opacity hover:opacity-90"
+          className="animate-toast-in fixed right-5 top-5 z-50 flex items-start gap-3 rounded-2xl bg-slate-900 p-3.5 pr-5 shadow-2xl ring-1 ring-white/10 transition-opacity hover:opacity-90"
         >
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-red-500/20">
             <IconAlert className="h-4 w-4 text-red-400" />
@@ -825,15 +825,15 @@ export default function DashboardPage() {
       )}
 
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
-      <header className="flex h-12 flex-shrink-0 items-center justify-between border-b border-white/5 bg-slate-950 px-4">
+      <header className="glass-card flex h-14 flex-shrink-0 items-center justify-between rounded-2xl px-4 sm:px-5">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 shadow shadow-indigo-600/40">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 shadow shadow-slate-900/25">
             <IconHotel className="h-3.5 w-3.5 text-white" />
           </div>
-          <span className="text-sm font-bold tracking-tight text-white">hoscover</span>
-          <span className="text-slate-700">·</span>
-          <span className="text-sm text-slate-500">Staff Portal</span>
+          <span className="text-sm font-bold tracking-tight text-slate-900">hoscover</span>
+          <span className="text-slate-400">·</span>
+          <span className="text-sm text-slate-600">Staff Portal</span>
         </div>
 
         {/* Right */}
@@ -850,18 +850,18 @@ export default function DashboardPage() {
                 </>
               )}
             </div>
-            <span className="text-xs text-slate-500">{socketIssue ? "Reconnecting" : "Live"}</span>
+            <span className="text-xs text-slate-600">{socketIssue ? "Reconnecting" : "Live"}</span>
           </div>
 
           {socketIssue && (
-            <p className="hidden text-xs text-amber-500 md:block">{socketIssue}</p>
+            <p className="hidden text-xs text-amber-700 md:block">{socketIssue}</p>
           )}
 
           {/* Onboarding (admin only) */}
           {isAdmin && (
             <a
               href="/dashboard/staff-invite"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:bg-slate-800 hover:text-slate-200"
+              className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs"
             >
               Onboarding
             </a>
@@ -871,7 +871,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={logout}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:bg-slate-800 hover:text-slate-200"
+            className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs"
           >
             <IconLogout className="h-3.5 w-3.5" />
             Sign out
@@ -880,28 +880,28 @@ export default function DashboardPage() {
       </header>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1">
+      <div className="mt-3 flex min-h-0 flex-1 gap-3">
 
         {/* ── Sidebar ──────────────────────────────────────────────────────── */}
         <aside
-          className={`flex w-[320px] flex-shrink-0 flex-col border-r border-white/5 bg-slate-900 ${
+          className={`glass-card flex w-[325px] flex-shrink-0 flex-col overflow-hidden rounded-2xl ${
             isMobileDetailOpen ? "hidden md:flex" : "flex"
           }`}
         >
           {/* Sidebar header */}
-          <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-slate-200/70 px-4 py-3">
             <div className="flex items-center gap-2">
-              <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-600">
                 Conversations
               </h2>
               {!loadingList && conversations.length > 0 && (
-                <span className="rounded-full bg-indigo-600 px-1.5 py-px text-[10px] font-bold text-white">
+                <span className="rounded-full bg-blue-600 px-1.5 py-px text-[10px] font-bold text-white">
                   {conversations.length}
                 </span>
               )}
             </div>
             {escalatedCount > 0 && (
-              <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400 ring-1 ring-inset ring-red-500/20">
+              <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-500 ring-1 ring-red-500/20">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
                 {escalatedCount} urgent
               </span>
@@ -909,11 +909,11 @@ export default function DashboardPage() {
           </div>
 
           {/* List */}
-          <div className="flex-1 overflow-y-auto py-2">
+          <div className="light-scroll flex-1 overflow-y-auto py-2">
             {loadingList && <SidebarSkeleton />}
 
             {listError && (
-              <div className="mx-3 mt-2 rounded-lg bg-red-500/10 px-3 py-2.5 text-xs text-red-400 ring-1 ring-inset ring-red-500/20">
+              <div className="mx-3 mt-2 rounded-lg bg-red-500/10 px-3 py-2.5 text-xs text-red-700 ring-1 ring-red-500/20">
                 {listError}
               </div>
             )}
@@ -921,10 +921,10 @@ export default function DashboardPage() {
             {!loadingList && !listError && conversations.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-800">
-                  <IconChat className="h-6 w-6 text-slate-600" />
+                  <IconChat className="h-6 w-6 text-slate-500" />
                 </div>
-                <p className="text-sm text-slate-500">No active conversations</p>
-                <p className="text-xs text-slate-600">Escalations will appear here in real time</p>
+                <p className="text-sm text-slate-600">No active conversations</p>
+                <p className="text-xs text-slate-500">Escalations will appear here in real time</p>
               </div>
             )}
 
@@ -942,8 +942,8 @@ export default function DashboardPage() {
                     onClick={() => setSelectedId(conv.id)}
                     className={`group w-full rounded-lg border-l-2 p-3 text-left transition-all ${meta.cardBorder} ${
                       isSelected
-                        ? "bg-indigo-600/15 ring-1 ring-inset ring-indigo-500/25"
-                        : "hover:bg-slate-800/70"
+                        ? "bg-blue-600/10 ring-1 ring-blue-500/30"
+                        : "hover:bg-white/65"
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -969,23 +969,23 @@ export default function DashboardPage() {
                       {/* Text */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
-                          <p className="truncate text-sm font-semibold text-slate-100">
+                          <p className="truncate text-sm font-semibold text-slate-900">
                             {formatPhone(conv.guest.phone_number)}
                           </p>
                           <div className="flex flex-shrink-0 items-center gap-1.5">
                             {/* Unread badge (P1-03) */}
                             {unreadCount > 0 && (
-                              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
+                              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-900 px-1 text-[10px] font-bold text-white">
                                 {unreadCount}
                               </span>
                             )}
-                            <span className="text-[10px] tabular-nums text-slate-600">
+                            <span className="text-[10px] tabular-nums text-slate-500">
                               {relativeTime(conv.last_message_at)}
                             </span>
                           </div>
                         </div>
 
-                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                        <p className="mt-0.5 truncate text-xs text-slate-600">
                           {truncate(conv.latest_message, 55)}
                         </p>
 
@@ -994,8 +994,8 @@ export default function DashboardPage() {
                             {meta.label}
                           </span>
                           {conv.escalation_reason && (
-                            <span className="truncate text-[10px] text-slate-600">
-                              · {formatReason(conv.escalation_reason)}
+                            <span className={`truncate rounded-full px-1.5 py-px text-[10px] font-medium ${meta.reasonTag}`}>
+                              {formatReason(conv.escalation_reason)}
                             </span>
                           )}
                         </div>
@@ -1010,17 +1010,17 @@ export default function DashboardPage() {
 
         {/* ── Chat panel ───────────────────────────────────────────────────── */}
         <section
-          className={`flex min-w-0 flex-1 flex-col ${isMobileDetailOpen ? "flex" : "hidden md:flex"}`}
+          className={`glass-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl ${isMobileDetailOpen ? "flex" : "hidden md:flex"}`}
         >
           {/* Empty state */}
           {!selectedId && (
-            <div className="flex h-full flex-col items-center justify-center gap-4 bg-slate-50">
+            <div className="flex h-full flex-col items-center justify-center gap-4 bg-white/45">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-200 shadow-inner">
                 <IconChat className="h-8 w-8 text-slate-400" />
               </div>
               <div className="text-center">
-                <p className="font-semibold text-slate-600">No conversation selected</p>
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="font-semibold text-slate-700">No conversation selected</p>
+                <p className="mt-1 text-sm text-slate-500">
                   Choose a conversation from the sidebar to begin
                 </p>
               </div>
@@ -1085,7 +1085,7 @@ export default function DashboardPage() {
                   {detail?.escalation_reason && (
                     <p className="mt-px text-[11px] text-slate-500">
                       Escalation reason ·{" "}
-                      <span className="font-medium capitalize text-slate-700">
+                      <span className={`rounded-full px-1.5 py-px font-medium capitalize ${statusMeta(detail.status).reasonTag}`}>
                         {formatReason(detail.escalation_reason)}
                       </span>
                     </p>
@@ -1099,7 +1099,7 @@ export default function DashboardPage() {
                       type="button"
                       onClick={onTakeOver}
                       disabled={isTakingOver}
-                      className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition-all hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-indigo-400"
+                      className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-slate-900/20 transition-all hover:bg-slate-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
                       <IconBolt className="h-3.5 w-3.5" />
                       {isTakingOver ? "Taking over…" : "Take Over"}
@@ -1177,6 +1177,13 @@ export default function DashboardPage() {
                         new Date(msg.sent_at).toDateString() !==
                           new Date(prev.sent_at).toDateString();
                       const isStaff = msg.sender_type === "staff";
+                      const next = detail.messages[idx + 1];
+                      const sentAiReply =
+                        msg.sender_type === "guest" &&
+                        next?.sender_type === "ai" &&
+                        next?.direction === "outbound"
+                          ? next
+                          : null;
                       const isAI = msg.sender_type === "ai";
                       const isGuest = msg.sender_type === "guest";
 
@@ -1200,12 +1207,12 @@ export default function DashboardPage() {
                             <div className="max-w-[78%] md:max-w-[62%]">
                               {/* Label */}
                               {isAI && (
-                                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-indigo-500">
+                                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-sky-700">
                                   AI
                                 </p>
                               )}
                               {isStaff && (
-                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-slate-700">
                                   You
                                 </p>
                               )}
@@ -1214,22 +1221,34 @@ export default function DashboardPage() {
                               <div
                                 className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
                                   isStaff
-                                    ? "rounded-tr-md bg-indigo-600 text-white shadow-indigo-600/20"
+                                    ? "rounded-tr-md bg-slate-900 text-white shadow-slate-900/20"
                                     : isAI
-                                      ? "rounded-tl-md bg-white text-indigo-900 ring-1 ring-inset ring-indigo-100"
+                                      ? "rounded-tl-md bg-sky-50 text-slate-800 ring-1 ring-sky-200"
                                       : "rounded-tl-md bg-white text-slate-800 ring-1 ring-inset ring-slate-200"
                                 }`}
                               >
                                 {msg.body}
                               </div>
 
-                              {/* AI Draft (not sent) — shown on guest messages when AI had a draft (P1-04) */}
-                              {isGuest && msg.ai_draft_text && (
+                              {/* Claude's sent reply — collapsible under the guest message that triggered it */}
+                              {sentAiReply && (
                                 <details className="mt-1.5">
-                                  <summary className="cursor-pointer select-none text-[10px] font-medium text-indigo-400 hover:text-indigo-300">
-                                    AI Draft (not sent)
+                                  <summary className="cursor-pointer select-none text-[10px] font-medium text-emerald-500 hover:text-emerald-400">
+                                    Claude replied ▾
                                   </summary>
-                                  <div className="mt-1 rounded-xl bg-indigo-50 px-3 py-2 text-xs italic text-indigo-700 ring-1 ring-inset ring-indigo-100">
+                                  <div className="mt-1 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-inset ring-emerald-100">
+                                    {sentAiReply.body}
+                                  </div>
+                                </details>
+                              )}
+
+                              {/* Claude draft — only shown when WhatsApp failed to deliver (no outbound AI bubble follows) */}
+                              {isGuest && msg.ai_draft_text && !sentAiReply && (
+                                <details className="mt-1.5">
+                                  <summary className="cursor-pointer select-none text-[10px] font-medium text-amber-500 hover:text-amber-400">
+                                    Claude&apos;s reply (not delivered) ▾
+                                  </summary>
+                                  <div className="mt-1 rounded-xl bg-amber-50 px-3 py-2 text-xs italic text-amber-800 ring-1 ring-inset ring-amber-100">
                                     {msg.ai_draft_text}
                                   </div>
                                 </details>
@@ -1276,12 +1295,12 @@ export default function DashboardPage() {
                       onChange={(e) => setReplyText(e.target.value)}
                       placeholder={detail?.status === "ESCALATED" ? "Draft your reply…" : "Type your reply to the guest…"}
                       disabled={detail?.status === "ESCALATED"}
-                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:cursor-text disabled:opacity-60"
+                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-slate-500 focus:bg-white focus:ring-4 focus:ring-slate-200 disabled:cursor-text disabled:opacity-60"
                     />
                     <button
                       type="submit"
                       disabled={isSending || !replyText.trim() || detail?.status === "ESCALATED"}
-                      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/25 transition-all hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm shadow-slate-900/20 transition-all hover:bg-slate-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
                       {isSending ? (
                         <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">

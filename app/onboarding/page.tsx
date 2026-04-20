@@ -101,12 +101,13 @@ export default function HotelOnboardingPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
-      <div className="mx-auto max-w-3xl">
+    <main className="app-shell">
+      <div className="mx-auto max-w-5xl">
+        <div className="glass-card rounded-[2rem] p-5 sm:p-8">
         <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Hoscover Setup</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Hotel Onboarding</h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="pill inline-flex px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]">Hoscover Setup</p>
+          <h1 className="card-title mt-3 text-3xl font-semibold tracking-tight">Hotel Onboarding</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
             Complete onboarding details to create your hotel and trigger the admin invite email.
           </p>
         </div>
@@ -123,87 +124,87 @@ export default function HotelOnboardingPage() {
           </section>
         )}
 
-        <form onSubmit={onSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <form onSubmit={onSubmit} className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_20px_50px_rgba(25,40,67,0.12)] md:p-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
-              <label htmlFor="hotelName" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="hotelName" className="ui-label">
                 Hotel Name *
               </label>
               <input
                 id="hotelName"
                 value={form.hotelName}
                 onChange={(event) => setForm((prev) => ({ ...prev, hotelName: event.target.value }))}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
               {errors.hotelName && <p className="mt-1 text-xs text-red-600">{errors.hotelName}</p>}
             </div>
 
             <div>
-              <label htmlFor="contactName" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="contactName" className="ui-label">
                 Contact Name
               </label>
               <input
                 id="contactName"
                 value={form.contactName}
                 onChange={(event) => setForm((prev) => ({ ...prev, contactName: event.target.value }))}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
             </div>
 
             <div>
-              <label htmlFor="contactPhone" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="contactPhone" className="ui-label">
                 Contact Phone *
               </label>
               <input
                 id="contactPhone"
                 value={form.contactPhone}
                 onChange={(event) => setForm((prev) => ({ ...prev, contactPhone: event.target.value }))}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
               {errors.contactPhone && <p className="mt-1 text-xs text-red-600">{errors.contactPhone}</p>}
             </div>
 
             <div className="md:col-span-2">
-              <label htmlFor="location" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="location" className="ui-label">
                 Location *
               </label>
               <input
                 id="location"
                 value={form.location}
                 onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
               {errors.location && <p className="mt-1 text-xs text-red-600">{errors.location}</p>}
             </div>
 
             <div>
-              <label htmlFor="whatsappNumber" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="whatsappNumber" className="ui-label">
                 WhatsApp Number *
               </label>
               <input
                 id="whatsappNumber"
                 value={form.whatsappNumber}
                 onChange={(event) => setForm((prev) => ({ ...prev, whatsappNumber: event.target.value }))}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
               {errors.whatsappNumber && <p className="mt-1 text-xs text-red-600">{errors.whatsappNumber}</p>}
             </div>
 
             <div>
-              <label htmlFor="whatsappPhoneNumberId" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="whatsappPhoneNumberId" className="ui-label">
                 WhatsApp Phone Number ID *
               </label>
               <input
                 id="whatsappPhoneNumberId"
                 value={form.whatsappPhoneNumberId}
                 onChange={(event) => setForm((prev) => ({ ...prev, whatsappPhoneNumberId: event.target.value }))}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
               {errors.whatsappPhoneNumberId && <p className="mt-1 text-xs text-red-600">{errors.whatsappPhoneNumberId}</p>}
             </div>
 
             <div className="md:col-span-2">
-              <label htmlFor="whatsappAccessToken" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="whatsappAccessToken" className="ui-label">
                 WhatsApp Access Token *
               </label>
               <input
@@ -211,13 +212,13 @@ export default function HotelOnboardingPage() {
                 type="password"
                 value={form.whatsappAccessToken}
                 onChange={(event) => setForm((prev) => ({ ...prev, whatsappAccessToken: event.target.value }))}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
               {errors.whatsappAccessToken && <p className="mt-1 text-xs text-red-600">{errors.whatsappAccessToken}</p>}
             </div>
 
             <div className="md:col-span-2">
-              <label htmlFor="adminEmail" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="adminEmail" className="ui-label">
                 Admin Email *
               </label>
               <input
@@ -225,13 +226,13 @@ export default function HotelOnboardingPage() {
                 type="email"
                 value={form.adminEmail}
                 onChange={(event) => setForm((prev) => ({ ...prev, adminEmail: event.target.value }))}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
               {errors.adminEmail && <p className="mt-1 text-xs text-red-600">{errors.adminEmail}</p>}
             </div>
 
             <div className="md:col-span-2">
-              <label htmlFor="knowledge_text" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="knowledge_text" className="ui-label">
                 Hotel Knowledge Base *
               </label>
               <p className="mb-2 text-xs text-slate-500 leading-relaxed">
@@ -242,7 +243,7 @@ export default function HotelOnboardingPage() {
               <ul className="mb-2 list-disc pl-4 text-xs text-slate-500 space-y-0.5">
                 <li><span className="font-medium text-slate-600">Check-in / check-out</span> — times, early check-in policy, late check-out fees</li>
                 <li><span className="font-medium text-slate-600">Room types & amenities</span> — what each room includes, bed types, views, capacity</li>
-                <li><span className="font-medium text-slate-600">Pricing & offers</span> — room rates, seasonal deals, what's included in the rate</li>
+                <li><span className="font-medium text-slate-600">Pricing & offers</span> — room rates, seasonal deals, what&apos;s included in the rate</li>
                 <li><span className="font-medium text-slate-600">Facilities</span> — pool, gym, spa, restaurant hours, parking, Wi-Fi details</li>
                 <li><span className="font-medium text-slate-600">Policies</span> — cancellation, pets, children, smoking, extra guests</li>
                 <li><span className="font-medium text-slate-600">Location & transport</span> — address, nearest airport, taxi/shuttle options, landmarks nearby</li>
@@ -254,7 +255,7 @@ export default function HotelOnboardingPage() {
                 value={form.knowledge_text ?? ""}
                 onChange={(event) => setForm((prev) => ({ ...prev, knowledge_text: event.target.value }))}
                 placeholder={`Example:\nCheck-in is from 2:00 PM and check-out is by 11:00 AM. Early check-in can be arranged for an extra $20 subject to availability.\n\nWe have 3 room types: Standard (1 queen bed), Deluxe (1 king bed, garden view), and Suite (king bed, living area, sea view). All rooms include free Wi-Fi, air conditioning, flat-screen TV, and daily housekeeping.\n\nThe swimming pool is open 7 AM – 9 PM. The restaurant serves breakfast (7–10 AM), lunch (12–3 PM), and dinner (6–10 PM).\n\nWe are located at 12 Palm Avenue, 5 km from Entebbe International Airport. Free airport shuttle available on request.`}
-                className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input min-h-44 resize-y"
               />
               {errors.knowledge_text && <p className="mt-1 text-xs text-red-600">{errors.knowledge_text}</p>}
               <p className="mt-1 text-xs text-slate-400">
@@ -264,7 +265,7 @@ export default function HotelOnboardingPage() {
           </div>
 
           {error && (
-            <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+            <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
               {error}
             </div>
           )}
@@ -276,12 +277,13 @@ export default function HotelOnboardingPage() {
             <button
               type="submit"
               disabled={loading}
-              className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+              className="btn-primary px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-70"
             >
               {loading ? "Submitting..." : "Onboard Hotel"}
             </button>
           </div>
         </form>
+      </div>
       </div>
     </main>
   );

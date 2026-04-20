@@ -154,24 +154,25 @@ function InviteSignupContent() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 md:px-8">
-      <div className="mx-auto max-w-2xl">
+    <main className="app-shell">
+      <div className="mx-auto max-w-3xl">
+        <div className="glass-card rounded-[2rem] p-5 sm:p-7">
         <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Invite Signup</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Complete Your Account</h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="pill inline-flex px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]">Invite Signup</p>
+          <h1 className="card-title mt-3 text-3xl font-semibold tracking-tight">Complete Your Account</h1>
+          <p className="mt-2 text-sm text-slate-600 leading-relaxed">
             Your invite determines hotel and role access. These values are locked for security.
           </p>
         </div>
 
         {inviteState === "loading" && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
+          <div className="soft-panel rounded-2xl p-5 text-sm text-slate-700">
             Validating your invite link...
           </div>
         )}
 
         {inviteState === "invalid" && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
             <p className="text-sm font-semibold text-red-800">Invite link is invalid</p>
             <p className="mt-2 text-sm text-red-700">{inviteError}</p>
             <p className="mt-4 text-sm text-red-700">
@@ -186,8 +187,8 @@ function InviteSignupContent() {
         )}
 
         {inviteState === "valid" && invite && (
-          <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-            <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-white/75 bg-white/65 p-5 shadow-[0_18px_40px_rgba(20,42,78,0.12)] md:p-6">
+            <section className="soft-panel rounded-2xl p-4">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Invite Details</p>
               <div className="mt-3 grid gap-3 text-sm text-slate-800 md:grid-cols-2">
                 <div>
@@ -214,19 +215,19 @@ function InviteSignupContent() {
             </section>
 
             <div>
-              <label htmlFor="fullName" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="fullName" className="ui-label">
                 Full Name (optional)
               </label>
               <input
                 id="fullName"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="password" className="ui-label">
                 Password
               </label>
               <input
@@ -235,12 +236,12 @@ function InviteSignupContent() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label htmlFor="confirmPassword" className="ui-label">
                 Confirm Password
               </label>
               <input
@@ -249,12 +250,12 @@ function InviteSignupContent() {
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 required
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                className="ui-input"
               />
             </div>
 
             {submitError && (
-              <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+              <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
                 {submitError}
               </div>
             )}
@@ -266,13 +267,14 @@ function InviteSignupContent() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+                className="btn-primary px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {submitting ? "Creating account..." : "Create account and continue"}
               </button>
             </div>
           </form>
         )}
+      </div>
       </div>
     </main>
   );
@@ -282,8 +284,8 @@ export default function InviteSignupPage() {
   return (
     <Suspense
       fallback={(
-        <main className="min-h-screen bg-slate-50 px-4 py-10 md:px-8">
-          <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
+        <main className="app-shell">
+          <div className="glass-card mx-auto max-w-2xl rounded-2xl p-5 text-sm text-slate-600">
             Loading invite...
           </div>
         </main>
