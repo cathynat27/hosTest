@@ -1,4 +1,4 @@
-import { Conversation, ConversationStatus, Guest } from "@/types";
+import { Conversation, ConversationStatus, EscalationReason, Guest } from "@/types";
 
 const CONVERSATION_STATUSES: ConversationStatus[] = [
   "ACTIVE_AI",
@@ -6,6 +6,23 @@ const CONVERSATION_STATUSES: ConversationStatus[] = [
   "HUMAN_ACTIVE",
   "RESOLVED",
 ];
+
+const ESCALATION_REASONS: EscalationReason[] = [
+  "rate_limit_exceeded",
+  "ai_failure",
+  "low_confidence",
+  "emergency",
+  "human_request",
+  "complaint",
+  "booking",
+  "repeated_frustration",
+  "escalated_state",
+  "injection_attempt",
+];
+
+function isEscalationReason(value: unknown): value is EscalationReason {
+  return typeof value === "string" && ESCALATION_REASONS.includes(value as EscalationReason);
+}
 
 export type ConversationValidationResult = {
   ok: boolean;
@@ -116,7 +133,7 @@ export function normalizeConversation(value: unknown): Conversation {
   const conversation: Conversation = {
     id: typeof source.id === "string" && source.id.trim() ? source.id : "unknown-conversation",
     status,
-    escalation_reason: typeof source.escalation_reason === "string" ? source.escalation_reason : undefined,
+    escalation_reason: isEscalationReason(source.escalation_reason) ? source.escalation_reason : undefined,
     assigned_to: assignedToCandidate,
     assigned_staff_id: assignedToCandidate,
     bot_active: typeof source.bot_active === "boolean" ? source.bot_active : status === "ACTIVE_AI",
