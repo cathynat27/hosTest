@@ -37,7 +37,9 @@ const STATUS_MAP: Record<string, ConversationStatus> = {
   open: "ACTIVE_AI",
   pending: "ESCALATED",
   resolved: "RESOLVED",
+  assigned: "HUMAN_ACTIVE",
   human_active: "HUMAN_ACTIVE",
+  in_progress: "HUMAN_ACTIVE",
   ACTIVE_AI: "ACTIVE_AI",
   ESCALATED: "ESCALATED",
   HUMAN_ACTIVE: "HUMAN_ACTIVE",
@@ -144,7 +146,11 @@ export function normalizeConversation(value: unknown): Conversation {
         ? source.assigned_staff_id
         : null;
 
-  const status = normalizeStatus(source.status);
+  const rawStatus = normalizeStatus(source.status);
+  const hasAssignedStaff = typeof assignedToCandidate === "string";
+  const botInactive = source.bot_active === false;
+  const status: ConversationStatus =
+    rawStatus === "ACTIVE_AI" && hasAssignedStaff && botInactive ? "HUMAN_ACTIVE" : rawStatus;
 
   const conversation: Conversation = {
     id: typeof source.id === "string" && source.id.trim() ? source.id : "unknown-conversation",

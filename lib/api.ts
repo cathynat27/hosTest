@@ -71,12 +71,15 @@ function ensureMessageShape(value: unknown): Message {
     throw new Error("Backend response is invalid: message payload missing");
   }
 
-  const item = value as Partial<Message>;
-  if (!item.id || !item.conversation_id || !item.body || !item.sender_type || !item.direction || !item.sent_at) {
+  const item = value as Partial<Message> & { sender_type?: string };
+  if (!item.id || !item.conversation_id || !item.body || !item.sender_type || !item.sent_at) {
     throw new Error("Backend response is invalid: message fields are incomplete");
   }
 
-  return item as Message;
+  const direction: "inbound" | "outbound" =
+    item.direction ?? (item.sender_type === "guest" ? "inbound" : "outbound");
+
+  return { ...item, direction } as Message;
 }
 
 function ensureConversationDetailShape(value: unknown): ConversationDetail {
