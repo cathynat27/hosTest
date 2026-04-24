@@ -1504,7 +1504,7 @@ export default function DashboardPage() {
                         : isStaff && !isMe
                           ? "Staff"
                           : null;
-                      const isAI = msg.sender_type === "ai" || msg.sender_type === "bot" ||
+                      const isAI = msg.sender_type === "ai" ||
                         (msg.direction === "outbound" && msg.sender_type !== "staff");
                       const isGuest = !isStaff && !isAI;
 
