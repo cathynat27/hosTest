@@ -4,10 +4,14 @@ import { Fragment, FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ApiError,
+  assignConversation,
+  confirmBooking,
   getConversationById,
   getConversations,
+  getTeamMembers,
   replyToConversation,
   resolveConversation,
+  sendNote,
   takeoverConversation,
 } from "@/lib/api";
 import {
@@ -26,6 +30,7 @@ import {
   ConversationUpdatedPayload,
   EscalationAlertPayload,
   Message,
+  TeamMember,
 } from "@/types";
 
 type ConversationFilter = "ALL" | ConversationStatus;
@@ -304,6 +309,11 @@ export default function DashboardPage() {
   const [sessionWarning, setSessionWarning] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ConversationFilter>("ALL");
   const [searchFilter, setSearchFilter] = useState("");
+  const [isNoteMode, setIsNoteMode] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingAmount, setBookingAmount] = useState("");
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
@@ -624,6 +634,15 @@ export default function DashboardPage() {
     void loadDetail(selectedId);
   }, [selectedId]);
 
+  // ── Load team members for assignment (admin only) ───────────────────────
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    getTeamMembers()
+      .then((members) => setTeamMembers(members.filter((m) => m.is_active)))
+      .catch(() => {/* non-critical — assignment dropdown just shows empty */});
+  }, [isAdmin]);
+
   // ── Toast auto-dismiss ───────────────────────────────────────────────────
 
   useEffect(() => {
@@ -793,6 +812,64 @@ export default function DashboardPage() {
     }
   };
 
+  const onAssign = async (staffId: string) => {
+    if (!detail) return;
+    setIsAssigning(true);
+    try {
+      const updated = await assignConversation(detail.id, staffId);
+      updateInList({ id: detail.id, assigned_staff_id: updated.assigned_staff_id });
+      setDetail((prev) => prev ? { ...prev, assigned_staff_id: updated.assigned_staff_id } : prev);
+    } catch (err) {
+      setDetailError(err instanceof Error ? err.message : "Failed to assign conversation");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const onConfirmBooking = async () => {
+    if (!detail) return;
+    const amount = parseFloat(bookingAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setDetailError("Please enter a valid booking amount");
+      return;
+    }
+    try {
+      await confirmBooking(detail.id, amount);
+      setDetail((prev) => prev ? { ...prev, booking_confirmed: true, booking_amount: amount } as ConversationDetail : prev);
+      setShowBookingModal(false);
+      setBookingAmount("");
+    } catch (err) {
+      setDetailError(err instanceof Error ? err.message : "Failed to confirm booking");
+    }
+  };
+
+  const onSendNote = async (text: string) => {
+    if (!detail) return;
+    const optimisticNote: Message = {
+      id: `temp-note-${Date.now()}`,
+      conversation_id: detail.id,
+      direction: "outbound",
+      sender_type: "staff",
+      body: text,
+      sent_at: new Date().toISOString(),
+      is_note: true,
+    } as Message & { is_note: boolean };
+    setDetail((prev) => prev ? { ...prev, messages: [...prev.messages, optimisticNote] } : prev);
+    setReplyText("");
+    setIsNoteMode(false);
+    try {
+      const saved = await sendNote(detail.id, text);
+      setDetail((prev) =>
+        prev ? { ...prev, messages: prev.messages.map((m) => m.id === optimisticNote.id ? saved : m) } : prev
+      );
+    } catch (err) {
+      setDetail((prev) =>
+        prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== optimisticNote.id) } : prev
+      );
+      setDetailError(err instanceof Error ? err.message : "Failed to send note");
+    }
+  };
+
   const logout = () => {
     clearAuthSession();
     router.replace("/login");
@@ -801,7 +878,7 @@ export default function DashboardPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <main className="app-shell flex h-screen flex-col overflow-hidden p-3 sm:p-5">
+    <main className="flex h-full flex-col overflow-hidden bg-slate-50/50 p-3 sm:p-4">
 
       {/* ── Session expiry warning banner (P1-09) ───────────────────────────── */}
       {sessionWarning && (
@@ -847,57 +924,32 @@ export default function DashboardPage() {
       )}
 
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
-      <header className="glass-card flex flex-shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 sm:h-14 sm:flex-nowrap sm:px-5 sm:py-0">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 shadow shadow-slate-900/25">
-            <IconHotel className="h-3.5 w-3.5 text-white" />
-          </div>
-          <span className="text-sm font-bold tracking-tight text-slate-900">hoscover</span>
-          <span className="text-slate-400">·</span>
-          <span className="text-sm text-slate-600">Staff Portal</span>
+      <header className="glass-card flex flex-shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-2.5 sm:h-12">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold tracking-tight text-slate-900">Inbox</span>
+          {isAdmin && (
+            <span className="rounded-full bg-blue-600/10 px-2 py-px text-[10px] font-semibold text-blue-700">
+              Admin
+            </span>
+          )}
         </div>
 
-        {/* Right */}
-        <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:gap-4">
-          {/* Live indicator (P0-07) — amber when disconnected, emerald when live */}
-          <div className="hidden items-center gap-1.5 sm:flex">
-            <div className="relative h-2 w-2">
-              {socketIssue ? (
-                <div className="h-2 w-2 rounded-full bg-amber-500" />
-              ) : (
-                <>
-                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <div className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />
-                </>
-              )}
-            </div>
-            <span className="text-xs text-slate-600">{socketIssue ? "Reconnecting" : "Live"}</span>
-          </div>
-
+        {/* Live indicator */}
+        <div className="flex items-center gap-1.5">
           {socketIssue && (
             <p className="hidden text-xs text-amber-700 md:block">{socketIssue}</p>
           )}
-
-          {/* Onboarding (admin only) */}
-          {isAdmin && (
-            <a
-              href="/dashboard/staff-invite"
-              className="btn-secondary inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs"
-            >
-              Onboarding
-            </a>
-          )}
-
-          {/* Logout */}
-          <button
-            type="button"
-            onClick={logout}
-            className="btn-secondary inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs"
-          >
-            <IconLogout className="h-3.5 w-3.5" />
-            Sign out
-          </button>
+          <div className="relative h-2 w-2">
+            {socketIssue ? (
+              <div className="h-2 w-2 rounded-full bg-amber-500" />
+            ) : (
+              <>
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <div className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />
+              </>
+            )}
+          </div>
+          <span className="text-xs text-slate-500">{socketIssue ? "Reconnecting" : "Live"}</span>
         </div>
       </header>
 
@@ -1145,6 +1197,38 @@ export default function DashboardPage() {
                   )}
                 </div>
 
+                {/* Admin: assign to staff */}
+                {isAdmin && detail && (
+                  <select
+                    value={detail.assigned_staff_id ?? ""}
+                    onChange={(e) => { if (e.target.value) void onAssign(e.target.value); }}
+                    disabled={isAssigning}
+                    aria-label="Assign conversation to staff member"
+                    className="hidden rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:opacity-50 sm:block"
+                  >
+                    <option value="">Unassigned</option>
+                    {teamMembers.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name || m.email}</option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Admin: booking confirmed */}
+                {isAdmin && detail?.status === "HUMAN_ACTIVE" && !(detail as ConversationDetail & { booking_confirmed?: boolean }).booking_confirmed && (
+                  <button
+                    type="button"
+                    onClick={() => setShowBookingModal(true)}
+                    className="hidden items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 sm:flex"
+                  >
+                    Booking Confirmed
+                  </button>
+                )}
+                {(detail as ConversationDetail & { booking_confirmed?: boolean })?.booking_confirmed && (
+                  <span className="hidden items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700 sm:flex">
+                    ✓ Booked
+                  </span>
+                )}
+
                 {/* Action buttons */}
                 <div className="flex flex-shrink-0 items-center gap-2">
                   {(detail?.status === "ESCALATED" || detail?.status === "ACTIVE_AI") && (
@@ -1329,48 +1413,137 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Compose (P1-08 — ref added for auto-focus after takeover) */}
-              {/* UX-04: also shown in ESCALATED so staff can draft while reading */}
+              {/* Compose */}
               {(detail?.status === "HUMAN_ACTIVE" || detail?.status === "ESCALATED") && (
-                <form
-                  onSubmit={detail?.status === "HUMAN_ACTIVE" ? onSendReply : (e) => e.preventDefault()}
-                  className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-3"
-                >
+                <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-3">
                   {detail?.status === "ESCALATED" && (
                     <p className="mb-2 text-xs text-amber-600">
                       Take over this conversation to send your reply.
                     </p>
                   )}
-                  <div className="flex items-center gap-2.5">
-                    <input
-                      ref={composeInputRef}
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder={detail?.status === "ESCALATED" ? "Draft your reply…" : "Type your reply to the guest…"}
-                      disabled={detail?.status === "ESCALATED"}
-                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-slate-500 focus:bg-white focus:ring-4 focus:ring-slate-200 disabled:cursor-text disabled:opacity-60"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isSending || !replyText.trim() || detail?.status === "ESCALATED"}
-                      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm shadow-slate-900/20 transition-all hover:bg-slate-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300"
-                    >
-                      {isSending ? (
-                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                      ) : (
-                        <IconSend className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </form>
+
+                  {/* Mode toggle (Reply / Note) — only when HUMAN_ACTIVE */}
+                  {detail?.status === "HUMAN_ACTIVE" && (
+                    <div className="mb-2 flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsNoteMode(false)}
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${!isNoteMode ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}
+                      >
+                        Reply
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsNoteMode(true)}
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${isNoteMode ? "bg-amber-500 text-white" : "text-slate-500 hover:bg-slate-100"}`}
+                      >
+                        Add Note
+                      </button>
+                    </div>
+                  )}
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!replyText.trim()) return;
+                      if (isNoteMode) {
+                        void onSendNote(replyText.trim());
+                      } else if (detail?.status === "HUMAN_ACTIVE") {
+                        void onSendReply(e);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        ref={composeInputRef}
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder={
+                          detail?.status === "ESCALATED"
+                            ? "Draft your reply…"
+                            : isNoteMode
+                            ? "Add an internal note (not sent to guest)…"
+                            : "Type your reply to the guest…"
+                        }
+                        disabled={detail?.status === "ESCALATED"}
+                        className={`flex-1 rounded-xl border px-4 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 disabled:cursor-text disabled:opacity-60 ${
+                          isNoteMode
+                            ? "border-amber-200 bg-amber-50 focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
+                            : "border-slate-200 bg-slate-50 focus:border-slate-500 focus:bg-white focus:ring-4 focus:ring-slate-200"
+                        }`}
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSending || !replyText.trim() || detail?.status === "ESCALATED"}
+                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 ${
+                          isNoteMode
+                            ? "bg-amber-500 shadow-amber-500/20 hover:bg-amber-600"
+                            : "bg-slate-900 shadow-slate-900/20 hover:bg-slate-700"
+                        }`}
+                      >
+                        {isSending ? (
+                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : (
+                          <IconSend className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               )}
             </div>
           )}
         </section>
       </div>
+
+      {/* ── Booking confirmation modal ──────────────────────────────────────── */}
+      {showBookingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+          <div className="glass-card w-full max-w-sm animate-scale-in rounded-2xl p-6">
+            <h3 className="text-base font-bold text-slate-900">Confirm Booking</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Mark this conversation as a confirmed booking and record the revenue.
+            </p>
+            <div className="mt-4">
+              <label htmlFor="booking-amount" className="ui-label">Booking Amount</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+                <input
+                  id="booking-amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={bookingAmount}
+                  onChange={(e) => setBookingAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="ui-input pl-7"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowBookingModal(false); setBookingAmount(""); }}
+                className="btn-secondary flex-1 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void onConfirmBooking()}
+                disabled={!bookingAmount || parseFloat(bookingAmount) <= 0}
+                className="flex-1 rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-600/25 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+              >
+                Confirm Booking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

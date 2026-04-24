@@ -1,10 +1,15 @@
 import { AuthTokenError, getAuthHeaders, handleAuthFailure } from "@/lib/auth";
 import { buildBackendUrl } from "@/lib/runtime-config";
 import {
+  AnalyticsDateRange,
+  AnalyticsOverview,
+  Automation,
   Conversation,
   ConversationDetail,
+  CreateAutomationRequest,
   CreateInviteRequest,
   CreateInviteResponse,
+  GuestProfile,
   InviteTokenValidation,
   LoginResponse,
   Message,
@@ -12,11 +17,12 @@ import {
   OnboardHotelResponse,
   RegisterRequest,
   RegisterFromInviteRequest,
+  TeamMember,
 } from "@/types";
 const REQUEST_TIMEOUT_MS = 15_000;
 
 type RequestOptions = {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   requiresAuth?: boolean;
   extraHeaders?: Record<string, string>;
@@ -353,4 +359,119 @@ export async function resolveConversation(id: string): Promise<Conversation> {
   return ensureConversationShape(await apiRequest<unknown>(`/api/conversations/${id}/resolve`, {
     method: "POST",
   }));
+}
+
+export async function assignConversation(id: string, staffId: string): Promise<Conversation> {
+  return ensureConversationShape(await apiRequest<unknown>(`/api/conversations/${id}/assign`, {
+    method: "POST",
+    body: { staff_id: staffId },
+  }));
+}
+
+export async function setConversationStatus(id: string, status: "open" | "pending" | "resolved"): Promise<Conversation> {
+  return ensureConversationShape(await apiRequest<unknown>(`/api/conversations/${id}/status`, {
+    method: "PUT",
+    body: { status },
+  }));
+}
+
+export async function sendNote(id: string, text: string): Promise<Message> {
+  return ensureMessageShape(await apiRequest<unknown>(`/api/conversations/${id}/reply`, {
+    method: "POST",
+    body: { text, is_note: true },
+  }));
+}
+
+export async function confirmBooking(id: string, amount: number): Promise<Conversation> {
+  return ensureConversationShape(await apiRequest<unknown>(`/api/conversations/${id}/booking`, {
+    method: "POST",
+    body: { amount },
+  }));
+}
+
+// ─── Automations ─────────────────────────────────────────────────────────────
+
+export async function getAutomations(): Promise<Automation[]> {
+  const response = await apiRequest<unknown[]>("/api/automations");
+  if (!Array.isArray(response)) {
+    throw new Error("Backend response is invalid: expected an automations list");
+  }
+  return response as Automation[];
+}
+
+export async function createAutomation(payload: CreateAutomationRequest): Promise<Automation> {
+  return apiRequest<Automation>("/api/automations", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function updateAutomation(id: string, payload: Partial<CreateAutomationRequest>): Promise<Automation> {
+  return apiRequest<Automation>(`/api/automations/${id}`, {
+    method: "PUT",
+    body: payload,
+  });
+}
+
+export async function toggleAutomation(id: string): Promise<Automation> {
+  return apiRequest<Automation>(`/api/automations/${id}/toggle`, {
+    method: "PUT",
+  });
+}
+
+export async function deleteAutomation(id: string): Promise<void> {
+  await apiRequest<unknown>(`/api/automations/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ─── Guests ───────────────────────────────────────────────────────────────────
+
+export async function getGuests(search?: string): Promise<GuestProfile[]> {
+  const path = search ? `/api/guests?search=${encodeURIComponent(search)}` : "/api/guests";
+  const response = await apiRequest<unknown[]>(path);
+  if (!Array.isArray(response)) {
+    throw new Error("Backend response is invalid: expected a guests list");
+  }
+  return response as GuestProfile[];
+}
+
+export async function getGuestById(id: string): Promise<GuestProfile> {
+  return apiRequest<GuestProfile>(`/api/guests/${id}`);
+}
+
+export async function updateGuest(id: string, payload: { name?: string; email?: string; notes?: string }): Promise<GuestProfile> {
+  return apiRequest<GuestProfile>(`/api/guests/${id}`, {
+    method: "PUT",
+    body: payload,
+  });
+}
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+export async function getAnalyticsOverview(range: AnalyticsDateRange = "last_7_days"): Promise<AnalyticsOverview> {
+  return apiRequest<AnalyticsOverview>(`/api/analytics/overview?range=${range}`);
+}
+
+// ─── Team ─────────────────────────────────────────────────────────────────────
+
+export async function getTeamMembers(): Promise<TeamMember[]> {
+  const response = await apiRequest<unknown[]>("/api/team");
+  if (!Array.isArray(response)) {
+    throw new Error("Backend response is invalid: expected a team list");
+  }
+  return response as TeamMember[];
+}
+
+export async function deactivateTeamMember(id: string): Promise<TeamMember> {
+  return apiRequest<TeamMember>(`/api/team/${id}/deactivate`, {
+    method: "POST",
+  });
+}
+
+export async function changeTeamMemberRole(id: string, role: "ADMIN" | "STAFF"): Promise<TeamMember> {
+  return apiRequest<TeamMember>(`/api/team/${id}/role`, {
+    method: "POST",
+    body: { role },
+  });
 }

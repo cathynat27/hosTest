@@ -133,3 +133,81 @@ export type ConversationUpdatedPayload = {
   status: ConversationStatus;
   assignedStaffId?: string;
 };
+
+// ─── Automations ─────────────────────────────────────────────────────────────
+
+export type AutomationTriggerType = "keyword" | "first_message" | "after_hours";
+
+export type Automation = {
+  id: string;
+  hotel_id: string;
+  name: string;
+  trigger_type: AutomationTriggerType;
+  trigger_value: string | null;
+  response_message: string;
+  delay_seconds: number;
+  follow_up_message: string | null;
+  follow_up_delay_seconds: number | null;
+  is_active: boolean;
+  updated_at: string;
+};
+
+export type CreateAutomationRequest = {
+  name: string;
+  trigger_type: AutomationTriggerType;
+  trigger_value?: string;
+  response_message: string;
+  delay_seconds?: number;
+  follow_up_message?: string;
+  follow_up_delay_seconds?: number;
+  is_active?: boolean;
+};
+
+// ─── Guests ───────────────────────────────────────────────────────────────────
+
+export type GuestSource = "whatsapp_inbound" | "csv_import" | "manual";
+
+export type StayHistoryEntry = {
+  check_in: string;
+  check_out: string;
+  room_type: string;
+  amount: number;
+};
+
+export type GuestProfile = {
+  id: string;
+  hotel_id: string;
+  whatsapp_number: string;
+  name: string | null;
+  email: string | null;
+  notes: string | null;
+  source: GuestSource;
+  stay_history: StayHistoryEntry[];
+  first_contact_at: string;
+  last_contact_at: string;
+  total_conversations: number;
+};
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+export type AnalyticsDateRange = "today" | "last_7_days" | "last_30_days" | "custom";
+
+export type AnalyticsOverview = {
+  total_conversations: number;
+  new_guests: number;
+  avg_first_response_time_minutes: number;
+  resolution_rate: number;
+  bookings_attributed: number;
+  revenue_attributed: number;
+};
+
+// ─── Team ─────────────────────────────────────────────────────────────────────
+
+export type TeamMember = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  is_active: boolean;
+  last_login_at: string | null;
+};
