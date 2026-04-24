@@ -1,4 +1,8 @@
 import { AuthTokenError, getAuthHeaders, handleAuthFailure } from "@/lib/auth";
+import {
+  normalizeConversation,
+  validateConversationPayload,
+} from "@/lib/conversation-runtime";
 import { buildBackendUrl } from "@/lib/runtime-config";
 import {
   AnalyticsDateRange,
@@ -55,16 +59,14 @@ function extractPayload<T>(data: unknown): T {
 }
 
 function ensureConversationShape(value: unknown): Conversation {
-  if (!value || typeof value !== "object") {
-    throw new Error("Backend response is invalid: conversation payload missing");
+  const validation = validateConversationPayload(value);
+  if (!validation.ok) {
+    throw new Error(
+      `Backend response is invalid: conversation fields are incomplete (${validation.missingFields.join(", ")})`,
+    );
   }
 
-  const item = value as Partial<Conversation>;
-  if (!item.id || !item.status || !item.last_message_at || !item.created_at || !item.guest?.id || !item.guest?.phone_number) {
-    throw new Error("Backend response is invalid: conversation fields are incomplete");
-  }
-
-  return item as Conversation;
+  return normalizeConversation(value);
 }
 
 function ensureMessageShape(value: unknown): Message {
@@ -342,10 +344,10 @@ export async function getConversationById(id: string): Promise<ConversationDetai
   return ensureConversationDetailShape(await apiRequest<unknown>(`/api/conversations/${id}`));
 }
 
-export async function takeoverConversation(id: string): Promise<Conversation> {
-  return ensureConversationShape(await apiRequest<unknown>(`/api/conversations/${id}/takeover`, {
+export async function takeoverConversation(id: string): Promise<unknown> {
+  return apiRequest<unknown>(`/api/conversations/${id}/takeover`, {
     method: "POST",
-  }));
+  });
 }
 
 export async function replyToConversation(id: string, text: string): Promise<Message> {
@@ -355,24 +357,24 @@ export async function replyToConversation(id: string, text: string): Promise<Mes
   }));
 }
 
-export async function resolveConversation(id: string): Promise<Conversation> {
-  return ensureConversationShape(await apiRequest<unknown>(`/api/conversations/${id}/resolve`, {
+export async function resolveConversation(id: string): Promise<unknown> {
+  return apiRequest<unknown>(`/api/conversations/${id}/resolve`, {
     method: "POST",
-  }));
+  });
 }
 
-export async function assignConversation(id: string, staffId: string): Promise<Conversation> {
-  return ensureConversationShape(await apiRequest<unknown>(`/api/conversations/${id}/assign`, {
+export async function assignConversation(id: string, staffId: string): Promise<unknown> {
+  return apiRequest<unknown>(`/api/conversations/${id}/assign`, {
     method: "POST",
     body: { staff_id: staffId },
-  }));
+  });
 }
 
-export async function setConversationStatus(id: string, status: "open" | "pending" | "resolved"): Promise<Conversation> {
-  return ensureConversationShape(await apiRequest<unknown>(`/api/conversations/${id}/status`, {
+export async function setConversationStatus(id: string, status: "open" | "pending" | "resolved"): Promise<unknown> {
+  return apiRequest<unknown>(`/api/conversations/${id}/status`, {
     method: "PUT",
     body: { status },
-  }));
+  });
 }
 
 export async function sendNote(id: string, text: string): Promise<Message> {
@@ -382,11 +384,11 @@ export async function sendNote(id: string, text: string): Promise<Message> {
   }));
 }
 
-export async function confirmBooking(id: string, amount: number): Promise<Conversation> {
-  return ensureConversationShape(await apiRequest<unknown>(`/api/conversations/${id}/booking`, {
+export async function confirmBooking(id: string, amount: number): Promise<unknown> {
+  return apiRequest<unknown>(`/api/conversations/${id}/booking`, {
     method: "POST",
     body: { amount },
-  }));
+  });
 }
 
 // ─── Automations ─────────────────────────────────────────────────────────────

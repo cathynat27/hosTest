@@ -14,7 +14,9 @@ export type EscalationReason =
 
 export type Guest = {
   id: string;
+  whatsapp_number: string;
   phone_number: string;
+  name: string | null;
 };
 
 export type Message = {
@@ -31,11 +33,15 @@ export type Conversation = {
   id: string;
   status: ConversationStatus;
   escalation_reason?: EscalationReason;
-  assigned_staff_id?: string;
+  assigned_to: string | null;
+  assigned_staff_id?: string | null;
+  bot_active: boolean;
+  booking_confirmed: boolean;
+  booking_amount: number | null;
   last_message_at: string;
   created_at: string;
   guest: Guest;
-  latest_message?: string;
+  latest_message: string;
 };
 
 export type ConversationDetail = Conversation & {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, FormEvent, useEffect, useRef, useState } from "react";
+import { Component, ErrorInfo, Fragment, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ApiError,
@@ -14,6 +14,10 @@ import {
   sendNote,
   takeoverConversation,
 } from "@/lib/api";
+import {
+  normalizeConversation,
+  validateConversationPayload,
+} from "@/lib/conversation-runtime";
 import {
   AuthTokenError,
   clearAuthSession,
@@ -284,6 +288,42 @@ type ToastData = {
   reason: string;
 };
 
+const MUTATION_PAYLOAD_WARNING = "Conversation update received incomplete data, please refresh";
+
+type ConversationPaneErrorBoundaryProps = {
+  children: ReactNode;
+};
+
+type ConversationPaneErrorBoundaryState = {
+  hasError: boolean;
+};
+
+class ConversationPaneErrorBoundary extends Component<
+  ConversationPaneErrorBoundaryProps,
+  ConversationPaneErrorBoundaryState
+> {
+  state: ConversationPaneErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): ConversationPaneErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.error("[conversation-pane-boundary]", error, errorInfo.componentStack);
+  }
+
+  render(): ReactNode {
+    if (!this.state.hasError) return this.props.children;
+
+    return (
+      <div className="glass-card flex min-h-[320px] flex-1 flex-col items-center justify-center gap-2 rounded-2xl p-6 text-center">
+        <p className="text-sm font-semibold text-slate-900">Conversation pane temporarily unavailable</p>
+        <p className="text-xs text-slate-500">Please refresh to recover realtime state.</p>
+      </div>
+    );
+  }
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -299,6 +339,7 @@ export default function DashboardPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [updateWarning, setUpdateWarning] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isTakingOver, setIsTakingOver] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
@@ -357,6 +398,41 @@ export default function DashboardPage() {
       const next = sortConversations(prev.map((c) => (c.id === patch.id ? { ...c, ...patch } : c)));
       conversationsRef.current = next;
       return next;
+    });
+  };
+
+  const applyMutationConversation = (
+    endpoint: "assign" | "status" | "takeover" | "resolve" | "booking",
+    payload: unknown,
+  ): Conversation | null => {
+    const validation = validateConversationPayload(payload);
+    if (!validation.ok) {
+      console.warn("[conversation-payload-validation-failed]", {
+        endpoint,
+        missingFields: validation.missingFields,
+      });
+      setUpdateWarning(MUTATION_PAYLOAD_WARNING);
+      return null;
+    }
+
+    return normalizeConversation(payload);
+  };
+
+  const upsertConversation = (conversation: Conversation) => {
+    setConversations((prev) => {
+      const exists = prev.some((c) => c.id === conversation.id);
+      const next = sortConversations(
+        exists
+          ? prev.map((c) => (c.id === conversation.id ? { ...c, ...conversation } : c))
+          : [conversation, ...prev],
+      );
+      conversationsRef.current = next;
+      return next;
+    });
+
+    setDetail((prev) => {
+      if (!prev || prev.id !== conversation.id) return prev;
+      return { ...prev, ...conversation };
     });
   };
 
@@ -651,6 +727,12 @@ export default function DashboardPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  useEffect(() => {
+    if (!updateWarning) return;
+    const t = setTimeout(() => setUpdateWarning(null), 5000);
+    return () => clearTimeout(t);
+  }, [updateWarning]);
+
   // ── Browser notification permission (UX-01) ──────────────────────────────
 
   useEffect(() => {
@@ -699,9 +781,10 @@ export default function DashboardPage() {
     // No optimistic update — apply state change only on confirmed API response (P0-09)
 
     try {
-      const updated = await takeoverConversation(detail.id);
-      updateInList(updated);
-      setDetail((prev) => (prev ? { ...prev, ...updated } : prev));
+      const updatedPayload = await takeoverConversation(detail.id);
+      const normalized = applyMutationConversation("takeover", updatedPayload);
+      if (!normalized) return;
+      upsertConversation(normalized);
       setReEscalationBanner(null);
       // Auto-focus the compose input so staff can type immediately (P1-08)
       setTimeout(() => composeInputRef.current?.focus(), 0);
@@ -800,7 +883,15 @@ export default function DashboardPage() {
     setSelectedId(null);
 
     try {
-      await resolveConversation(detail.id);
+      const updatedPayload = await resolveConversation(detail.id);
+      const normalized = applyMutationConversation("resolve", updatedPayload);
+      if (!normalized) {
+        conversationsRef.current = listSnapshot;
+        setConversations(listSnapshot);
+        setDetail(detailSnapshot);
+        setSelectedId(detailSnapshot.id);
+        return;
+      }
     } catch (err) {
       conversationsRef.current = listSnapshot;
       setConversations(listSnapshot);
@@ -816,9 +907,10 @@ export default function DashboardPage() {
     if (!detail) return;
     setIsAssigning(true);
     try {
-      const updated = await assignConversation(detail.id, staffId);
-      updateInList({ id: detail.id, assigned_staff_id: updated.assigned_staff_id });
-      setDetail((prev) => prev ? { ...prev, assigned_staff_id: updated.assigned_staff_id } : prev);
+      const updatedPayload = await assignConversation(detail.id, staffId);
+      const normalized = applyMutationConversation("assign", updatedPayload);
+      if (!normalized) return;
+      upsertConversation(normalized);
     } catch (err) {
       setDetailError(err instanceof Error ? err.message : "Failed to assign conversation");
     } finally {
@@ -834,8 +926,10 @@ export default function DashboardPage() {
       return;
     }
     try {
-      await confirmBooking(detail.id, amount);
-      setDetail((prev) => prev ? { ...prev, booking_confirmed: true, booking_amount: amount } as ConversationDetail : prev);
+      const updatedPayload = await confirmBooking(detail.id, amount);
+      const normalized = applyMutationConversation("booking", updatedPayload);
+      if (!normalized) return;
+      upsertConversation(normalized);
       setShowBookingModal(false);
       setBookingAmount("");
     } catch (err) {
@@ -923,6 +1017,15 @@ export default function DashboardPage() {
         </button>
       )}
 
+      {updateWarning && (
+        <div
+          role="status"
+          className="animate-toast-in fixed right-5 top-24 z-50 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 ring-1 ring-amber-200"
+        >
+          {updateWarning}
+        </div>
+      )}
+
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
       <header className="glass-card flex flex-shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-2.5 sm:h-12">
         <div className="flex items-center gap-2">
@@ -954,7 +1057,8 @@ export default function DashboardPage() {
       </header>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className="mt-3 flex min-h-0 flex-1 justify-center gap-3 md:justify-start">
+      <ConversationPaneErrorBoundary>
+        <div className="mt-3 flex min-h-0 flex-1 justify-center gap-3 md:justify-start">
 
         {/* ── Sidebar ──────────────────────────────────────────────────────── */}
         <aside
@@ -1497,7 +1601,8 @@ export default function DashboardPage() {
             </div>
           )}
         </section>
-      </div>
+        </div>
+      </ConversationPaneErrorBoundary>
 
       {/* ── Booking confirmation modal ──────────────────────────────────────── */}
       {showBookingModal && (
