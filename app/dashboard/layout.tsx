@@ -1,10 +1,11 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { disconnectSocket, getSocket } from "@/lib/socket";
 import { clearAuthSession, getCurrentUser } from "@/lib/auth";
+import type { AuthUser } from "@/types";
 
 function IconHotel({ className }: { className?: string }) {
   return (
@@ -92,8 +93,12 @@ function NavItem({ href, icon, label, active }: NavItemProps) {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const currentUser = getCurrentUser();
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const isAdmin = currentUser?.role === "ADMIN";
+
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+  }, []);
 
   const configError = useMemo(() => {
     try {
