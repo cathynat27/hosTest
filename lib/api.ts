@@ -247,22 +247,21 @@ function ensureCreateInviteShape(value: unknown): CreateInviteResponse {
   }
 
   const item = value as Record<string, unknown>;
-  if (
-    typeof item.email !== "string" ||
-    (item.role !== "ADMIN" && item.role !== "STAFF") ||
-    typeof item.expiresAt !== "string"
-  ) {
-    throw new Error("Backend response is invalid: invite fields are incomplete");
+  const rawRole = typeof item.role === "string" ? item.role.toUpperCase() : "";
+  const missing: string[] = [];
+  if (typeof item.email !== "string" || !item.email) missing.push("email");
+  if (rawRole !== "ADMIN" && rawRole !== "STAFF") missing.push("role");
+  if (typeof item.expiresAt !== "string" || !item.expiresAt) missing.push("expiresAt");
+
+  if (missing.length > 0) {
+    throw new Error(`Backend response is invalid: invite fields are incomplete (${missing.join(", ")})`);
   }
 
   return {
-    email: item.email,
-    role: item.role,
-    expiresAt: item.expiresAt,
-    message:
-      typeof item.message === "string"
-        ? item.message
-        : "Invite sent successfully.",
+    email: item.email as string,
+    role: rawRole as InviteRole,
+    expiresAt: item.expiresAt as string,
+    message: typeof item.message === "string" ? item.message : "Invite sent successfully.",
   };
 }
 
