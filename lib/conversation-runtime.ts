@@ -33,8 +33,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object";
 }
 
+const STATUS_MAP: Record<string, ConversationStatus> = {
+  open: "ACTIVE_AI",
+  pending: "ESCALATED",
+  resolved: "RESOLVED",
+  human_active: "HUMAN_ACTIVE",
+  ACTIVE_AI: "ACTIVE_AI",
+  ESCALATED: "ESCALATED",
+  HUMAN_ACTIVE: "HUMAN_ACTIVE",
+  RESOLVED: "RESOLVED",
+};
+
 function isStatus(value: unknown): value is ConversationStatus {
   return typeof value === "string" && CONVERSATION_STATUSES.includes(value as ConversationStatus);
+}
+
+function normalizeStatus(value: unknown): ConversationStatus {
+  if (typeof value === "string" && STATUS_MAP[value]) return STATUS_MAP[value];
+  return "ACTIVE_AI";
 }
 
 export function validateConversationPayload(value: unknown): ConversationValidationResult {
@@ -128,7 +144,7 @@ export function normalizeConversation(value: unknown): Conversation {
         ? source.assigned_staff_id
         : null;
 
-  const status = isStatus(source.status) ? source.status : "ACTIVE_AI";
+  const status = normalizeStatus(source.status);
 
   const conversation: Conversation = {
     id: typeof source.id === "string" && source.id.trim() ? source.id : "unknown-conversation",
