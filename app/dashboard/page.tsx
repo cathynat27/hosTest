@@ -13,6 +13,7 @@ import {
   resolveConversation,
   sendNote,
   takeoverConversation,
+  updateGuest,
 } from "@/lib/api";
 import {
   normalizeConversation,
@@ -67,6 +68,10 @@ function formatPhone(phone: string): string {
 
 function avatarChars(phone: string): string {
   return phone.replace(/\D/g, "").slice(-4, -2) || "··";
+}
+
+function guestDisplayName(name: string | null | undefined, phone: string): string {
+  return name?.trim() || formatPhone(phone);
 }
 
 function truncate(text: string | undefined, max: number): string {
@@ -329,6 +334,7 @@ class ConversationPaneErrorBoundary extends Component<
 export default function DashboardPage() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
@@ -354,6 +360,9 @@ export default function DashboardPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingAmount, setBookingAmount] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
@@ -468,7 +477,9 @@ export default function DashboardPage() {
       return;
     }
 
-    setIsAdmin(getCurrentUser()?.role === "ADMIN");
+    const me = getCurrentUser();
+    setIsAdmin(me?.role === "ADMIN");
+    setCurrentUserId(me?.id ?? null);
 
     // ── JWT expiry warning (P1-09) ─────────────────────────────────────────
     const expireTimers: ReturnType<typeof setTimeout>[] = [];
@@ -799,6 +810,25 @@ export default function DashboardPage() {
       }
     } finally {
       setIsTakingOver(false);
+    }
+  };
+
+  const onSaveName = async () => {
+    if (!detail || !nameInput.trim()) return;
+    setIsSavingName(true);
+    try {
+      const updated = await updateGuest(detail.guest.id, { name: nameInput.trim() });
+      setDetail((d) => d ? { ...d, guest: { ...d.guest, name: updated.name } } : d);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.guest.id === detail.guest.id ? { ...c, guest: { ...c.guest, name: updated.name } } : c
+        )
+      );
+      setIsEditingName(false);
+    } catch {
+      // silently fail — name stays as-is
+    } finally {
+      setIsSavingName(false);
     }
   };
 
@@ -1180,7 +1210,7 @@ export default function DashboardPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
                           <p className="truncate text-sm font-semibold text-slate-900">
-                            {formatPhone(conv.guest.phone_number)}
+                            {guestDisplayName(conv.guest.name, conv.guest.phone_number)}
                           </p>
                           <div className="flex flex-shrink-0 items-center gap-1.5">
                             {/* Unread badge (P1-03) */}
@@ -1281,10 +1311,55 @@ export default function DashboardPage() {
                 {/* Name + status */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h2 className="truncate text-sm font-semibold text-slate-900">
-                      {detail ? formatPhone(detail.guest.phone_number) : "Loading…"}
-                    </h2>
-                    {detail && (
+                    {isEditingName ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          autoFocus
+                          value={nameInput}
+                          onChange={(e) => setNameInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void onSaveName();
+                            if (e.key === "Escape") setIsEditingName(false);
+                          }}
+                          placeholder="Enter customer name"
+                          className="rounded-lg border border-slate-300 px-2 py-1 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-300 w-44"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void onSaveName()}
+                          disabled={isSavingName}
+                          className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                        >
+                          {isSavingName ? "…" : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingName(false)}
+                          className="rounded-lg px-2 py-1 text-[11px] text-slate-500 hover:bg-slate-100"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <h2 className="truncate text-sm font-semibold text-slate-900">
+                          {detail ? guestDisplayName(detail.guest.name, detail.guest.phone_number) : "Loading…"}
+                        </h2>
+                        {detail && (
+                          <button
+                            type="button"
+                            title="Edit customer name"
+                            onClick={() => { setNameInput(detail.guest.name ?? ""); setIsEditingName(true); }}
+                            className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition"
+                          >
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {detail && !isEditingName && (
                       <span
                         className={`flex-shrink-0 rounded-full px-2 py-px text-[10px] font-semibold ${statusMeta(detail.status).badge}`}
                       >
@@ -1419,15 +1494,19 @@ export default function DashboardPage() {
                         new Date(msg.sent_at).toDateString() !==
                           new Date(prev.sent_at).toDateString();
                       const isStaff = msg.sender_type === "staff";
-                      const next = detail.messages[idx + 1];
-                      const sentAiReply =
-                        msg.sender_type === "guest" &&
-                        next?.sender_type === "ai" &&
-                        next?.direction === "outbound"
-                          ? next
+                      const isNote = isStaff && msg.is_note === true;
+                      const isMe = isStaff && (msg.sender_id === currentUserId || !msg.sender_id);
+                      const staffSender = isStaff && !isMe
+                        ? teamMembers.find((m) => m.id === msg.sender_id)
+                        : null;
+                      const staffLabel = staffSender
+                        ? (staffSender.name || staffSender.email)
+                        : isStaff && !isMe
+                          ? "Staff"
                           : null;
-                      const isAI = msg.sender_type === "ai";
-                      const isGuest = msg.sender_type === "guest";
+                      const isAI = msg.sender_type === "ai" || msg.sender_type === "bot" ||
+                        (msg.direction === "outbound" && msg.sender_type !== "staff");
+                      const isGuest = !isStaff && !isAI;
 
                       return (
                         <Fragment key={msg.id}>
@@ -1444,51 +1523,50 @@ export default function DashboardPage() {
 
                           {/* Bubble */}
                           <div
-                            className={`animate-fade-up flex ${isStaff ? "justify-end" : "justify-start"} mb-1`}
+                            className={`animate-fade-up flex ${isGuest ? "justify-start" : "justify-end"} mb-1`}
                           >
                             <div className="max-w-[78%] md:max-w-[62%]">
                               {/* Label */}
+                              {/* Sender label */}
                               {isAI && (
-                                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-sky-700">
-                                  AI
+                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-sky-600">AI</p>
+                              )}
+                              {isNote && (
+                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                                  {staffLabel ?? "You"} · Note
                                 </p>
                               )}
-                              {isStaff && (
-                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-slate-700">
-                                  You
+                              {isStaff && !isNote && isMe && (
+                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">You</p>
+                              )}
+                              {isStaff && !isNote && !isMe && staffLabel && (
+                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                                  {staffLabel}
                                 </p>
                               )}
 
                               {/* Bubble body */}
                               <div
                                 className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
-                                  isStaff
-                                    ? "rounded-tr-md bg-slate-900 text-white shadow-slate-900/20"
-                                    : isAI
-                                      ? "rounded-tl-md bg-sky-50 text-slate-800 ring-1 ring-sky-200"
-                                      : "rounded-tl-md bg-white text-slate-800 ring-1 ring-inset ring-slate-200"
+                                  isNote
+                                    ? "rounded-tr-md border border-dashed border-amber-300 bg-amber-50 text-amber-900"
+                                    : isMe
+                                      ? "rounded-tr-md bg-slate-900 text-white shadow-slate-900/20"
+                                      : isStaff
+                                        ? "rounded-tr-md bg-indigo-600 text-white shadow-indigo-600/20"
+                                        : isAI
+                                          ? "rounded-tr-md bg-sky-100 text-slate-800 ring-1 ring-sky-200"
+                                          : "rounded-tl-md bg-white text-slate-800 ring-1 ring-inset ring-slate-200"
                                 }`}
                               >
                                 {msg.body}
                               </div>
 
-                              {/* Claude's sent reply — collapsible under the guest message that triggered it */}
-                              {sentAiReply && (
-                                <details className="mt-1.5">
-                                  <summary className="cursor-pointer select-none text-[10px] font-medium text-emerald-500 hover:text-emerald-400">
-                                    Claude replied ▾
-                                  </summary>
-                                  <div className="mt-1 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-inset ring-emerald-100">
-                                    {sentAiReply.body}
-                                  </div>
-                                </details>
-                              )}
-
-                              {/* Claude draft — only shown when WhatsApp failed to deliver (no outbound AI bubble follows) */}
-                              {isGuest && msg.ai_draft_text && !sentAiReply && (
+                              {/* Claude draft — shown when AI had a draft but it wasn't delivered */}
+                              {isGuest && msg.ai_draft_text && (
                                 <details className="mt-1.5">
                                   <summary className="cursor-pointer select-none text-[10px] font-medium text-amber-500 hover:text-amber-400">
-                                    Claude&apos;s reply (not delivered) ▾
+                                    Claude&apos;s draft (not delivered) ▾
                                   </summary>
                                   <div className="mt-1 rounded-xl bg-amber-50 px-3 py-2 text-xs italic text-amber-800 ring-1 ring-inset ring-amber-100">
                                     {msg.ai_draft_text}
@@ -1498,7 +1576,7 @@ export default function DashboardPage() {
 
                               {/* Time */}
                               <p
-                                className={`mt-1 text-[10px] text-slate-400 ${isStaff ? "text-right" : "text-left"}`}
+                                className={`mt-1 text-[10px] text-slate-400 ${isGuest ? "text-left" : "text-right"}`}
                               >
                                 {msgTime(msg.sent_at)}
                               </p>

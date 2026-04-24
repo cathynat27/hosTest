@@ -24,7 +24,9 @@ export type Message = {
   conversation_id: string;
   direction: "inbound" | "outbound";
   sender_type: "guest" | "ai" | "staff";
+  sender_id?: string | null;
   body: string;
+  is_note?: boolean;
   ai_draft_text?: string;
   sent_at: string;
 };

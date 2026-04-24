@@ -71,15 +71,26 @@ function ensureMessageShape(value: unknown): Message {
     throw new Error("Backend response is invalid: message payload missing");
   }
 
-  const item = value as Partial<Message> & { sender_type?: string };
-  if (!item.id || !item.conversation_id || !item.body || !item.sender_type || !item.sent_at) {
+  const raw = value as Record<string, unknown>;
+  if (!raw.id || !raw.conversation_id || !raw.body || !raw.sender_type || !raw.sent_at) {
     throw new Error("Backend response is invalid: message fields are incomplete");
   }
 
+  const sender_type = raw.sender_type as Message["sender_type"];
   const direction: "inbound" | "outbound" =
-    item.direction ?? (item.sender_type === "guest" ? "inbound" : "outbound");
+    (raw.direction as "inbound" | "outbound") ?? (sender_type === "guest" ? "inbound" : "outbound");
 
-  return { ...item, direction } as Message;
+  return {
+    id: raw.id as string,
+    conversation_id: raw.conversation_id as string,
+    direction,
+    sender_type,
+    sender_id: typeof raw.sender_id === "string" ? raw.sender_id : null,
+    body: raw.body as string,
+    is_note: raw.is_note === true,
+    ai_draft_text: typeof raw.ai_draft_text === "string" ? raw.ai_draft_text : undefined,
+    sent_at: raw.sent_at as string,
+  } satisfies Message;
 }
 
 function ensureConversationDetailShape(value: unknown): ConversationDetail {
