@@ -1,8 +1,5 @@
 import { AuthTokenError, getAuthHeaders, handleAuthFailure } from "@/lib/auth";
-import {
-  normalizeConversation,
-  validateConversationPayload,
-} from "@/lib/conversation-runtime";
+import { normalizeConversation } from "@/lib/conversation-runtime";
 import { buildBackendUrl } from "@/lib/runtime-config";
 import {
   AnalyticsDateRange,
@@ -59,13 +56,13 @@ function extractPayload<T>(data: unknown): T {
 }
 
 function ensureConversationShape(value: unknown): Conversation {
-  const validation = validateConversationPayload(value);
-  if (!validation.ok) {
-    throw new Error(
-      `Backend response is invalid: conversation fields are incomplete (${validation.missingFields.join(", ")})`,
-    );
+  if (!value || typeof value !== "object") {
+    throw new Error("Backend response is invalid: conversation payload missing");
   }
-
+  const record = value as Record<string, unknown>;
+  if (typeof record.id !== "string" || !record.id.trim()) {
+    throw new Error("Backend response is invalid: conversation fields are incomplete (id)");
+  }
   return normalizeConversation(value);
 }
 
