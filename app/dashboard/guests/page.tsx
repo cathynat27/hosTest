@@ -189,7 +189,7 @@ function GuestDetail({
 
 export default function GuestsPage() {
   const router = useRouter();
-  const isAdmin = getCurrentUser()?.role === "ADMIN";
+  const [isAdmin, setIsAdmin] = useState(false);
   const [guests, setGuests] = useState<GuestProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,6 +199,7 @@ export default function GuestsPage() {
 
   useEffect(() => {
     if (!getToken()) { router.replace("/login"); return; }
+    setIsAdmin(getCurrentUser()?.role === "ADMIN");
     load();
   }, []);
 

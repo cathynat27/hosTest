@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminInvitePanel from "@/app/dashboard/admin-invite-panel";
 import { getCurrentUser } from "@/lib/auth";
 
 export default function StaffInvitePage() {
   const router = useRouter();
-  const user = getCurrentUser();
-  const isAdmin = user?.role === "ADMIN";
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    const user = getCurrentUser();
     if (!user) {
       router.replace("/login?reason=missing-token");
+      return;
     }
-  }, [router, user]);
+    setIsAdmin(user.role === "ADMIN");
+    setReady(true);
+  }, [router]);
 
-  if (!user) return null;
+  if (!ready) return null;
 
   return (
     <main className="app-shell">

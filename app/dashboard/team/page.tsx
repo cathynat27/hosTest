@@ -28,7 +28,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
 
 export default function TeamPage() {
   const router = useRouter();
-  const currentUser = getCurrentUser();
+  const [currentUser, setCurrentUser] = useState<ReturnType<typeof getCurrentUser>>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +44,9 @@ export default function TeamPage() {
 
   useEffect(() => {
     if (!getToken()) { router.replace("/login"); return; }
-    if (currentUser?.role !== "ADMIN") { router.replace("/dashboard"); return; }
+    const user = getCurrentUser();
+    setCurrentUser(user);
+    if (user?.role !== "ADMIN") { router.replace("/dashboard"); return; }
     load();
   }, []);
 

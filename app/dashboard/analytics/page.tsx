@@ -46,7 +46,6 @@ function SkeletonCard() {
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const currentUser = getCurrentUser();
   const [range, setRange] = useState<AnalyticsDateRange>("last_7_days");
   const [data, setData] = useState<AnalyticsOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +53,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (!getToken()) { router.replace("/login"); return; }
-    if (currentUser?.role !== "ADMIN") { router.replace("/dashboard"); return; }
+    if (getCurrentUser()?.role !== "ADMIN") { router.replace("/dashboard"); return; }
   }, []);
 
   useEffect(() => {

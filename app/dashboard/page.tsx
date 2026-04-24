@@ -328,8 +328,7 @@ class ConversationPaneErrorBoundary extends Component<
 
 export default function DashboardPage() {
   const router = useRouter();
-  const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.role === "ADMIN";
+  const [isAdmin, setIsAdmin] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
@@ -468,6 +467,8 @@ export default function DashboardPage() {
       router.replace("/login");
       return;
     }
+
+    setIsAdmin(getCurrentUser()?.role === "ADMIN");
 
     // ── JWT expiry warning (P1-09) ─────────────────────────────────────────
     const expireTimers: ReturnType<typeof setTimeout>[] = [];
