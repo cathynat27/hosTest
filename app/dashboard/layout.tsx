@@ -82,7 +82,7 @@ function NavItem({ href, icon, label, active }: NavItemProps) {
     >
       <span className="h-5 w-5">{icon}</span>
       {/* Tooltip */}
-      <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-all group-hover:opacity-100">
+      <span className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-all group-hover:opacity-100">
         {label}
       </span>
     </Link>
@@ -143,7 +143,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
       {/* ── Left nav rail ──────────────────────────────────────────────────── */}
-      <nav className="flex w-[60px] flex-shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white py-3 shadow-sm">
+      <nav className="relative z-40 flex w-[60px] flex-shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white py-3 shadow-sm">
         {/* Brand mark */}
         <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 shadow shadow-slate-900/25">
           <IconHotel className="h-4 w-4 text-white" />
