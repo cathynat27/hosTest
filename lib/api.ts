@@ -11,6 +11,7 @@ import {
   CreateInviteRequest,
   CreateInviteResponse,
   GuestProfile,
+  InviteRole,
   InviteTokenValidation,
   LoginResponse,
   Message,
@@ -271,28 +272,36 @@ function ensureInviteValidationShape(value: unknown): InviteTokenValidation {
   }
 
   const item = value as Record<string, unknown>;
-  const hotel = item.hotel as Record<string, unknown> | undefined;
+  const hotel = item.hotel && typeof item.hotel === "object"
+    ? (item.hotel as Record<string, unknown>)
+    : undefined;
 
-  if (
-    typeof item.email !== "string" ||
-    (item.role !== "ADMIN" && item.role !== "STAFF") ||
-    typeof item.expiresAt !== "string" ||
-    !hotel ||
-    typeof hotel.id !== "string" ||
-    typeof hotel.code !== "string" ||
-    typeof hotel.name !== "string"
-  ) {
-    throw new Error("Backend response is invalid: invite validation fields are incomplete");
+  const missing: string[] = [];
+  if (typeof item.email !== "string" || !item.email) missing.push("email");
+  if (typeof item.expiresAt !== "string" || !item.expiresAt) missing.push("expiresAt");
+  if (!hotel) missing.push("hotel");
+  else {
+    if (typeof hotel.id !== "string") missing.push("hotel.id");
+    if (typeof hotel.code !== "string") missing.push("hotel.code");
+    if (typeof hotel.name !== "string") missing.push("hotel.name");
+  }
+
+  // Normalise role to uppercase so "staff" and "STAFF" both work
+  const rawRole = typeof item.role === "string" ? item.role.toUpperCase() : "";
+  if (rawRole !== "ADMIN" && rawRole !== "STAFF") missing.push("role");
+
+  if (missing.length > 0) {
+    throw new Error(`Backend response is invalid: invite fields are incomplete (${missing.join(", ")})`);
   }
 
   return {
-    email: item.email,
-    role: item.role,
-    expiresAt: item.expiresAt,
+    email: item.email as string,
+    role: rawRole as InviteRole,
+    expiresAt: item.expiresAt as string,
     hotel: {
-      id: hotel.id,
-      code: hotel.code,
-      name: hotel.name,
+      id: (hotel as Record<string, string>).id,
+      code: (hotel as Record<string, string>).code,
+      name: (hotel as Record<string, string>).name,
     },
   };
 }

@@ -4,7 +4,7 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError, registerFromInvite, validateInviteToken } from "@/lib/api";
-import { getToken, setAuthSession } from "@/lib/auth";
+import { getToken } from "@/lib/auth";
 import { InviteTokenValidation } from "@/types";
 
 type InviteStatus = "loading" | "valid" | "invalid";
@@ -139,13 +139,12 @@ function InviteSignupContent() {
     setSubmitError(null);
 
     try {
-      const result = await registerFromInvite({
+      await registerFromInvite({
         token,
         password,
         fullName: fullName.trim() || undefined,
       });
-      setAuthSession(result.token, result.user);
-      router.replace("/dashboard");
+      router.replace("/login");
     } catch (err) {
       setSubmitError(mapRegisterError(err));
     } finally {
