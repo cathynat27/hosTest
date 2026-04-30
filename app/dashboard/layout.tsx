@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { disconnectSocket, getSocket } from "@/lib/socket";
-import { clearAuthSession, getCurrentUser } from "@/lib/auth";
+import { clearAuthSession, getCurrentUser, handleAuthFailure } from "@/lib/auth";
 import type { AuthUser } from "@/types";
 
 function IconHotel({ className }: { className?: string }) {
@@ -75,11 +75,10 @@ function NavItem({ href, icon, label, active }: NavItemProps) {
     <Link
       href={href}
       title={label}
-      className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
-        active
-          ? "bg-slate-900 text-white shadow-sm shadow-slate-900/25"
-          : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-      }`}
+      className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all ${active
+        ? "bg-slate-900 text-white shadow-sm shadow-slate-900/25"
+        : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+        }`}
     >
       <span className="h-5 w-5">{icon}</span>
       {/* Tooltip */}
@@ -93,23 +92,37 @@ function NavItem({ href, icon, label, active }: NavItemProps) {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  // ── All state starts as "unknown" on server and client alike ──────────────
+  const [mounted, setMounted] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const isAdmin = currentUser?.role === "ADMIN";
+  const [configError, setConfigError] = useState<string | null>(null);
 
   useEffect(() => {
-    setCurrentUser(getCurrentUser());
-  }, []);
+    // Resolve user
+    const user = getCurrentUser();
+    setCurrentUser(user);
 
-  const configError = useMemo(() => {
+    // Attempt to initialise the socket.
+    //  • null   → no valid session (token missing/expired) → redirect to login
+    //  • throws → configuration problem               → show error in UI
     try {
-      getSocket();
-      return null;
-    } catch {
-      return "Dashboard configuration error — contact your administrator.";
+      const socket = getSocket();
+      if (socket === null) {
+        console.warn("[dashboard-layout] No socket/session, redirecting.");
+        handleAuthFailure("missing");
+        return;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setConfigError(
+        `Dashboard configuration error${message ? ` (${message})` : ""} — contact your administrator.`
+      );
     }
-  }, []);
 
-  useEffect(() => {
+    // Mark as mounted last so the shell only shows once auth is confirmed
+    setMounted(true);
+
     return () => {
       disconnectSocket();
     };
@@ -120,31 +133,22 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     router.replace("/login");
   };
 
-  if (configError) {
-    return (
-      <main className="flex min-h-screen items-center justify-center px-6 text-center">
-        <div className="glass-card rounded-3xl px-7 py-8">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/15 ring-1 ring-red-500/20">
-            <svg className="h-6 w-6 text-red-400" viewBox="0 0 24 24" fill="currentColor">
-              <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <p className="mt-4 text-base font-semibold text-slate-900">{configError}</p>
-        </div>
-      </main>
-    );
-  }
+  const isAdmin = currentUser?.role === "ADMIN";
 
   const navItems = [
     { href: "/dashboard", label: "Inbox", icon: <IconInbox /> },
     { href: "/dashboard/guests", label: "Guests", icon: <IconUsers /> },
-    ...(isAdmin ? [
-      { href: "/dashboard/automations", label: "Automations", icon: <IconBolt /> },
-      { href: "/dashboard/analytics", label: "Analytics", icon: <IconChart /> },
-      { href: "/dashboard/team", label: "Team", icon: <IconTeam /> },
-    ] : []),
+    ...(isAdmin
+      ? [
+        { href: "/dashboard/automations", label: "Automations", icon: <IconBolt /> },
+        { href: "/dashboard/analytics", label: "Analytics", icon: <IconChart /> },
+        { href: "/dashboard/team", label: "Team", icon: <IconTeam /> },
+      ]
+      : []),
   ];
 
+  // ── Always render the same outer shell on server + initial client paint ───
+  // Only swap in error UI or user-specific content after mount.
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
       {/* ── Left nav rail ──────────────────────────────────────────────────── */}
@@ -156,28 +160,29 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         <div className="h-px w-8 bg-slate-200" />
 
-        {/* Nav items */}
+        {/* Nav items — only rendered after mount so server/client match */}
         <div className="mt-2 flex flex-col items-center gap-1">
-          {navItems.map((item) => {
-            const active =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href);
-            return (
-              <NavItem
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                active={active}
-              />
-            );
-          })}
+          {mounted &&
+            navItems.map((item) => {
+              const active =
+                item.href === "/dashboard"
+                  ? pathname === "/dashboard"
+                  : pathname.startsWith(item.href);
+              return (
+                <NavItem
+                  key={item.href}
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  active={active}
+                />
+              );
+            })}
         </div>
 
-        {/* Bottom: sign out */}
+        {/* Bottom: avatar + sign out */}
         <div className="mt-auto flex flex-col items-center gap-2">
-          {currentUser && (
+          {mounted && currentUser && (
             <div
               className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold uppercase text-slate-600"
               title={currentUser.email}
@@ -198,7 +203,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       {/* ── Page content ───────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {children}
+        {/* Config error overlay — shown client-side only after mount */}
+        {mounted && configError ? (
+          <div className="flex flex-1 items-center justify-center px-6 text-center">
+            <div className="glass-card rounded-3xl px-7 py-8">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/15 ring-1 ring-red-500/20">
+                <svg className="h-6 w-6 text-red-400" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    fillRule="evenodd"
+                    d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <p className="mt-4 text-base font-semibold text-slate-900">{configError}</p>
+            </div>
+          </div>
+        ) : (
+          children
+        )}
       </div>
     </div>
   );

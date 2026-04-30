@@ -2,7 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import HoscoverLogo from "@/app/components/hoscover-logo";
 import { getToken, setAuthSession } from "@/lib/auth";
 import { login } from "@/lib/api";
@@ -12,14 +13,17 @@ const ENABLE_DEV_LOGINS = isDevLoginEnabled();
 
 type TestUser = { email: string; password: string; label: string };
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [testUsers, setTestUsers] = useState<TestUser[]>([]);
+
+  const reason = searchParams.get("reason");
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" && ENABLE_DEV_LOGINS) {
@@ -28,8 +32,13 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (getToken()) router.replace("/dashboard");
-  }, [router]);
+    // Only auto-redirect if there's a token AND no error reason
+    // This prevents loops when a session is invalid but still present
+    const token = getToken();
+    if (token && !reason) {
+      router.replace("/dashboard");
+    }
+  }, [router, reason]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -166,5 +175,13 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

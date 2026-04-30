@@ -508,6 +508,7 @@ export default function DashboardPage() {
         setListError(null);
       } catch (err) {
         if (err instanceof AuthTokenError) {
+          console.warn("[dashboard-page] refreshList auth failure, redirecting.");
           handleAuthFailure(err.reason);
         }
         setListError(err instanceof Error ? err.message : "Failed to load conversations");
@@ -519,9 +520,18 @@ export default function DashboardPage() {
 
     // ── Socket init (P0-04) — wrapped in try/catch so env misconfiguration
     //    produces a human-readable message instead of a blank screen ─────────
-    let socket: ReturnType<typeof getSocket>;
+    //    getSocket() returns null when there is no valid session (redirect to
+    //    login) and throws only on a genuine config error (show error UI).
+    let socket: NonNullable<ReturnType<typeof getSocket>>;
     try {
-      socket = getSocket();
+      const maybeSocket = getSocket();
+      if (maybeSocket === null) {
+        console.warn("[dashboard-page] No socket/session, redirecting.");
+        expireTimers.forEach(clearTimeout);
+        handleAuthFailure("missing");
+        return;
+      }
+      socket = maybeSocket;
     } catch {
       setSocketIssue("Dashboard configuration error — contact your administrator.");
       expireTimers.forEach(clearTimeout);
@@ -651,7 +661,8 @@ export default function DashboardPage() {
 
     const handleConnectError = (error: unknown) => {
       if (isSocketAuthError(error)) {
-        handleAuthFailure("expired");
+        console.error("[dashboard-page] Socket auth error (redirect disabled for debug):", error);
+        // handleAuthFailure("expired"); // Disabled to debug persistent redirect issue
       }
       setSocketIssue("Realtime connection lost. Retrying automatically...");
     };

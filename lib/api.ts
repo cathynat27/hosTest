@@ -119,14 +119,8 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
   };
 
   if (requiresAuth) {
-    try {
-      Object.assign(headers, getAuthHeaders());
-    } catch (err) {
-      if (err instanceof AuthTokenError) {
-        return handleAuthFailure(err.reason);
-      }
-      throw err;
-    }
+    // getAuthHeaders will throw AuthTokenError if the session is invalid
+    Object.assign(headers, getAuthHeaders());
   }
 
   let response: Response;
@@ -161,7 +155,13 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
   }
 
   if (response.status === 401 && requiresAuth) {
-    return handleAuthFailure("expired");
+    const token = getToken();
+    if (token?.startsWith("dev-token-")) {
+      console.error("[api] Server rejected dev token with 401. Staying on page but API will fail.");
+      throw new ApiError("Server rejected development token", 401);
+    }
+    handleAuthFailure("expired");
+    throw new AuthTokenError("expired");
   }
 
   if (!response.ok) {
