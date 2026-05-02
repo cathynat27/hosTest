@@ -1,12 +1,19 @@
 import { io, Socket } from "socket.io-client";
-import { getAuthHeaders } from "@/lib/auth";
+import { getToken } from "@/lib/auth";
 import { getBackendBaseUrl } from "@/lib/runtime-config";
 
 let socketInstance: Socket | null = null;
 
-function getSocketAuthToken(): string {
-  const { Authorization } = getAuthHeaders();
-  return Authorization.replace(/^Bearer\s+/i, "");
+/**
+ * Returns the bare JWT for socket auth, or null when there is no valid session.
+ * Returns null (not throws) so callers can redirect cleanly instead of crashing.
+ */
+function getSocketAuthToken(): string | null {
+  const token = getToken();
+  if (!token) return null;
+  // Check expiry without triggering handleAuthFailure — let the caller decide
+  // how to handle the missing session (e.g. redirect vs. show error).
+  return token;
 }
 
 function isAuthErrorMessage(message: string): boolean {
@@ -41,12 +48,24 @@ export function isSocketAuthError(error: unknown): boolean {
   return false;
 }
 
-export function getSocket(): Socket {
-  const backendUrl = getBackendBaseUrl();
+/**
+ * Returns a connected Socket, or **null** when there is no valid session.
+ * Throws only for genuine configuration problems (e.g. missing backend URL).
+ *
+ * Callers should treat null as "no session → redirect to login" and a thrown
+ * error as "bad config → show an error message".
+ */
+export function getSocket(): Socket | null {
+  const token = getSocketAuthToken();
+
+  // No token → no session. Return null so the caller can redirect cleanly.
+  if (!token) return null;
+
+  const backendUrl = getBackendBaseUrl(); // may throw on bad config
 
   if (!socketInstance) {
     socketInstance = io(backendUrl, {
-      auth: { token: getSocketAuthToken() },
+      auth: { token },
       autoConnect: false,
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -57,7 +76,13 @@ export function getSocket(): Socket {
   }
 
   if (!socketInstance.connected) {
-    socketInstance.auth = { token: getSocketAuthToken() };
+    // Refresh the token in case it was renewed since last connect
+    const freshToken = getSocketAuthToken();
+    if (!freshToken) {
+      // Token disappeared between the two checks — treat as no session
+      return null;
+    }
+    socketInstance.auth = { token: freshToken };
     socketInstance.connect();
   }
 

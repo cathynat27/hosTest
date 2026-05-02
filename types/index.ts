@@ -114,6 +114,7 @@ export type CreateInviteResponse = {
 
 export type InviteTokenValidation = {
   email: string;
+  status: "pending" | "cancelled" | "expired" | "accepted";
   role: InviteRole;
   expiresAt: string;
   hotel: {

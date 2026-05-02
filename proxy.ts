@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const token = request.cookies.get("hoscover_jwt")?.value;
   if (!token) {
     return NextResponse.redirect(new URL("/login", request.url));
@@ -11,3 +11,5 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/dashboard/:path*"],
 };
+
+export default proxy;
