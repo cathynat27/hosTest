@@ -1,4 +1,17 @@
 import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "../globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  preload: false,
+});
 
 export const metadata: Metadata = {
   title: "Hoscover - WhatsApp Booking Automation for Hotels",
@@ -56,7 +69,10 @@ export default function LandingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
       <head>
         {/* Preconnect to external domains */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -70,7 +86,7 @@ export default function LandingLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="format-detection" content="telephone=no" />
       </head>
-      <body>{children}</body>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

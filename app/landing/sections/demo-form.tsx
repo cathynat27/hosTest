@@ -81,7 +81,7 @@ export default function DemoFormSection() {
     if (!validateForm()) {
       return;
     }
-
+    //console.log("Submitting form data:", formData);
     setLoading(true);
     setApiError(null);
 

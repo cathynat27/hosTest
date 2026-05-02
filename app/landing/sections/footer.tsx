@@ -16,10 +16,10 @@ export default function FooterSection() {
             </p>
           </div>
           <div className="flex gap-6 text-sm">
-            <a href="#" className="text-gray-400 hover:text-white transition-colors">
+            <a href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
               Privacy Policy
             </a>
-            <a href="#" className="text-gray-400 hover:text-white transition-colors">
+            <a href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
               Terms of Service
             </a>
           </div>
