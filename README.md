@@ -125,6 +125,10 @@ Open <http://localhost:3000>
 - Keep NEXT_PUBLIC_ENABLE_DEV_LOGIN=false in production.
 - Remove test users from lib/dev-logins.ts before go-live.
 
+## Maintenance Notes
+
+- Docs-only update used for PR validation.
+
 ## Project Structure
 
 ```text
