@@ -1,4 +1,4 @@
-import { AuthTokenError, getAuthHeaders, handleAuthFailure } from "@/lib/auth";
+import { AuthTokenError, getAuthHeaders, getToken, handleAuthFailure } from "@/lib/auth";
 import { normalizeConversation } from "@/lib/conversation-runtime";
 import { buildBackendUrl } from "@/lib/runtime-config";
 import {
