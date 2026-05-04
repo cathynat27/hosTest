@@ -1,4 +1,4 @@
-import { AuthTokenError, getAuthHeaders, handleAuthFailure } from "@/lib/auth";
+import { AuthTokenError, getAuthHeaders, getToken, handleAuthFailure } from "@/lib/auth";
 import { normalizeConversation } from "@/lib/conversation-runtime";
 import { buildBackendUrl } from "@/lib/runtime-config";
 import {
@@ -274,9 +274,11 @@ function ensureInviteValidationShape(value: unknown): InviteTokenValidation {
   const hotel = item.hotel && typeof item.hotel === "object"
     ? (item.hotel as Record<string, unknown>)
     : undefined;
+  const status = typeof item.status === "string" ? item.status : "";
 
   const missing: string[] = [];
   if (typeof item.email !== "string" || !item.email) missing.push("email");
+  if (!status) missing.push("status");
   if (typeof item.expiresAt !== "string" || !item.expiresAt) missing.push("expiresAt");
   if (!hotel) missing.push("hotel");
   else {
@@ -289,12 +291,23 @@ function ensureInviteValidationShape(value: unknown): InviteTokenValidation {
   const rawRole = typeof item.role === "string" ? item.role.toUpperCase() : "";
   if (rawRole !== "ADMIN" && rawRole !== "STAFF") missing.push("role");
 
+  const allowedStatuses: InviteTokenValidation["status"][] = [
+    "pending",
+    "cancelled",
+    "expired",
+    "accepted",
+  ];
+  if (!allowedStatuses.includes(status as InviteTokenValidation["status"])) {
+    missing.push("status");
+  }
+
   if (missing.length > 0) {
     throw new Error(`Backend response is invalid: invite fields are incomplete (${missing.join(", ")})`);
   }
 
   return {
     email: item.email as string,
+    status: status as InviteTokenValidation["status"],
     role: rawRole as InviteRole,
     expiresAt: item.expiresAt as string,
     hotel: {
