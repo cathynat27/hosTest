@@ -115,15 +115,15 @@ export default function DemoFormSection() {
   };
 
   return (
-    <section id="demo-form-section" className="py-20 px-4 bg-white">
+    <section id="demo-form-section" className="py-20 px-4 bg-slate-100">
       <div className="max-w-2xl mx-auto">
         {/* Section title */}
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
-            Ready to Transform Your Bookings?
+            Ready to Boost Your Bookings?
           </h2>
           <p className="text-lg text-gray-600">
-            Schedule a personalized demo and see how Hoscover can increase your bookings.
+            Schedule a personalized demo and see how Hoscover can transform your WhatsApp into a booking machine.
           </p>
         </div>
 
@@ -133,7 +133,7 @@ export default function DemoFormSection() {
             <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="font-semibold text-green-900 mb-1">Demo scheduled!</h3>
-              <p className="text-green-800">
+              <p className="text-green-800 text-sm">
                 We will reach out on WhatsApp within 24 hours to confirm your demo time.
               </p>
             </div>
@@ -146,13 +146,13 @@ export default function DemoFormSection() {
             <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="font-semibold text-red-900 mb-1">Error</h3>
-              <p className="text-red-800">{apiError}</p>
+              <p className="text-red-800 text-sm">{apiError}</p>
             </div>
           </div>
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-gray-50 rounded-lg p-8 border border-gray-200">
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg p-8 border border-gray-200 shadow-lg">
           <div className="space-y-6">
             {/* Full Name */}
             <div>
@@ -166,7 +166,7 @@ export default function DemoFormSection() {
                 value={formData.fullName}
                 onChange={handleChange}
                 placeholder="John Smith"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${errors.fullName
+                className={`w-full px-4 py-3 rounded-lg border transition-colors shadow-lg ${errors.fullName
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -191,7 +191,7 @@ export default function DemoFormSection() {
                 value={formData.propertyName}
                 onChange={handleChange}
                 placeholder="Sunset Beach Resort"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${errors.propertyName
+                className={`w-full px-4 py-3 rounded-lg border transition-colors shadow-lg ${errors.propertyName
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -216,7 +216,7 @@ export default function DemoFormSection() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="john@hotel.com"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${errors.email
+                className={`w-full px-4 py-3 rounded-lg border transition-colors shadow-lg ${errors.email
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -241,7 +241,7 @@ export default function DemoFormSection() {
                 value={formData.whatsappNumber}
                 onChange={handleChange}
                 placeholder="+1 (555) 123-4567"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${errors.whatsappNumber
+                className={`w-full px-4 py-3 rounded-lg border transition-colors  shadow-lg ${errors.whatsappNumber
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -267,7 +267,7 @@ export default function DemoFormSection() {
                 value={formData.averageRooms}
                 onChange={handleChange}
                 placeholder="50"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${errors.averageRooms
+                className={`w-full px-4 py-3 rounded-lg border transition-colors shadow-lg ${errors.averageRooms
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -287,7 +287,7 @@ export default function DemoFormSection() {
               variant="primary"
               isLoading={loading}
               disabled={loading}
-              className="w-full"
+              className="w-full rounde-lg shadow-lg"
             >
               Schedule My Demo
             </Button>

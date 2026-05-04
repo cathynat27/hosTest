@@ -38,44 +38,42 @@ export default function HowItWorksSection() {
   ];
 
   return (
-    <section className="py-20 px-4 bg-white">
+    <section id="how-it-works-section" className="py-20 px-4 bg-gray-50">
       <div className="max-w-6xl mx-auto">
         {/* Section title */}
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
-            3 Steps to More Bookings
+            How Hoscover Works
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Simple setup. Powerful results. Start capturing more bookings today.
+            Three simple steps to transform your WhatsApp into a 24/7 booking machine.
           </p>
         </div>
 
         {/* Steps grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-          {/* Desktop arrows */}
-          <div className="hidden md:block absolute top-24 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-200 to-transparent" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
           {steps.map((step, index) => (
             <div key={index} className="relative">
               {/* Step card */}
-              <div className="bg-gradient-to-br from-blue-50 to-white rounded-lg p-8 border border-blue-100 h-full">
+              <div className="bg-white rounded-lg p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all h-full relative pt-12">
                 {/* Step number badge */}
-                <div className="absolute -top-4 -left-4 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-lg">
+                <div className="absolute top-0 left-8 w-12 h-12 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold text-lg shadow-md">
                   {step.number}
                 </div>
 
                 {/* Step title */}
-                <h3 className="text-xl font-bold text-gray-900 mb-3 mt-4">{step.title}</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">{step.title}</h3>
 
                 {/* Step description */}
-                <p className="text-gray-600 mb-6 leading-relaxed">{step.description}</p>
+                <p className="text-gray-600 mb-6 leading-relaxed text-sm">{step.description}</p>
 
                 {/* Features list */}
                 <ul className="space-y-3">
                   {step.features.map((feature, featureIndex) => (
                     <li key={featureIndex} className="flex items-start gap-3">
                       <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">{feature}</span>
+                      <span className="text-gray-700 text-sm">{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -93,8 +91,8 @@ export default function HowItWorksSection() {
 
         {/* CTA */}
         <div className="mt-16 text-center">
-          <p className="text-gray-600 mb-4">
-            Ready to see it in action? Schedule a personalized demo with our team.
+          <p className="text-gray-600 mb-6 text-lg">
+            Ready to see it in action? Get a personalized demo and discover how Hoscover can transform your bookings.
           </p>
           <Button
             size="lg"
@@ -104,7 +102,7 @@ export default function HowItWorksSection() {
               demoSection?.scrollIntoView({ behavior: "smooth" });
             }}
           >
-            Get Started
+            Schedule Your Demo
           </Button>
         </div>
       </div>

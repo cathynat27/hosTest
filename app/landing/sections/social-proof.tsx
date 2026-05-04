@@ -39,7 +39,7 @@ export default function SocialProofSection() {
   }
 
   return (
-    <section className="py-20 px-4 bg-gray-50">
+    <section id="social-proof-section" className="py-20 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
         {/* Section title */}
         <div className="text-center mb-16">
@@ -47,16 +47,16 @@ export default function SocialProofSection() {
             Trusted by Hotels Worldwide
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            See what hotel managers and owners are saying about Hoscover.
+            Hotel managers and owners share how Hoscover transformed their bookings and operations.
           </p>
         </div>
 
         {/* Testimonials grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           {testimonials.map((testimonial, index) => (
             <div
               key={index}
-              className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow flex flex-col"
+              className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-lg hover:border-blue-200 transition-all flex flex-col"
             >
               {/* Star rating */}
               <div className="flex gap-1 mb-4">
@@ -66,33 +66,33 @@ export default function SocialProofSection() {
               </div>
 
               {/* Quote */}
-              <p className="text-gray-700 mb-6 flex-grow leading-relaxed italic">
-                {testimonial.quote}
+              <p className="text-gray-700 mb-6 flex-grow leading-relaxed text-sm italic">
+                &ldquo;{testimonial.quote}&rdquo;
               </p>
 
               {/* Author info */}
               <div className="border-t border-gray-200 pt-4">
-                <p className="font-semibold text-gray-900">{testimonial.name}</p>
-                <p className="text-sm text-gray-600">{testimonial.role}</p>
-                <p className="text-sm text-blue-600 font-medium">{testimonial.property}</p>
+                <p className="font-semibold text-gray-900 text-sm">{testimonial.name}</p>
+                <p className="text-xs text-gray-600">{testimonial.role}</p>
+                <p className="text-xs text-blue-600 font-medium">{testimonial.property}</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* Stats */}
-        <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
+        <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8 text-center bg-blue-50 rounded-lg p-8 border border-blue-200">
           <div>
             <p className="text-4xl font-bold text-blue-600 mb-2">500+</p>
-            <p className="text-gray-600">Hotels using Hoscover</p>
+            <p className="text-gray-600 text-sm">Hotels using Hoscover</p>
           </div>
           <div>
             <p className="text-4xl font-bold text-blue-600 mb-2">2M+</p>
-            <p className="text-gray-600">Bookings processed</p>
+            <p className="text-gray-600 text-sm">Bookings processed</p>
           </div>
           <div>
             <p className="text-4xl font-bold text-blue-600 mb-2">35%</p>
-            <p className="text-gray-600">Average booking increase</p>
+            <p className="text-gray-600 text-sm">Average booking increase</p>
           </div>
         </div>
       </div>

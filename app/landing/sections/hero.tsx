@@ -10,7 +10,7 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative min-h-[40vh] bg-gradient-to-br from-white via-gray-50 to-gray-100 flex items-center justify-center px-4 py-10 overflow-hidden">
+    <section className="  id=hero relative min-h-[40vh] bg-gradient-to-br from-white via-gray-50 to-gray-100 flex items-center justify-center px-4 py-10 overflow-hidden">
 
       {/* Background decoration (soft neutral) */}
       <div className="absolute inset-0 opacity-20">
@@ -65,14 +65,14 @@ export default function HeroSection() {
         </div>
 
         {/* Scroll */}
-        <button
+        {/* <button
           onClick={scrollToNext}
           className="mx-auto flex flex-col items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors animate-bounce"
           aria-label="Scroll to next section"
         >
           <span className="text-sm font-medium">Scroll to explore</span>
           <ChevronDown className="w-5 h-5" />
-        </button>
+        </button> */}
 
       </div>
     </section>

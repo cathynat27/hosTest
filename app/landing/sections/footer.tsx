@@ -6,73 +6,70 @@ export default function FooterSection() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-900 text-gray-300 py-12 px-4">
+    <footer className="bg-gray-900 text-gray-300 py-16 px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between gap-8 mb-8">          {/* Company info */}
+        {/* Footer main content */}
+        <div className="flex flex-cols-1 md:flex-cols-4 gap-12 mb-12 justify-between">
+          {/* Brand */}
           <div>
-            <h3 className="text-white font-bold text-lg mb-2">Hoscover by Jurya Technologies</h3>
-            <p className="text-sm text-gray-400">
-              Turn WhatsApp into your hotels best salesperson.
+            <h3 className="text-white font-bold text-lg mb-3">Hoscover</h3>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              Turn WhatsApp into your hotel&apos;s best salesperson.<br></br> Respond instantly, capture every lead.
             </p>
           </div>
-          <div className="flex gap-6 text-sm">
-            <a href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
-              Privacy Policy
-            </a>
-            <a href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
-              Terms of Service
-            </a>
-          </div>
 
-          {/* Product links 
-           <div>
-            <h4 className="text-white font-semibold mb-4">Product</h4>
+          {/* Quick Links */}
+          {/* <div>
+            <h4 className="text-white font-semibold mb-4 text-sm">QUICK LINKS</h4>
             <ul className="space-y-2 text-sm">
+              <li>
+                <a href="/landing" className="text-gray-400 hover:text-white transition-colors">
+                  Home
+                </a>
+              </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white transition-colors">
                   Features
                 </a>
               </li>
-              <li>
+              {/* <li>
                 <a href="#" className="text-gray-400 hover:text-white transition-colors">
                   Pricing
                 </a>
+              </li> */}
+          {/* <li>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  Blog
+                </a>
+              </li> 
+            </ul>
+          </div> */}
+
+          {/* Company */}
+          <div>
+            <h4 className="text-white font-semibold mb-4 text-sm">COMPANY</h4>
+            <ul className="space-y-2 text-sm">
+              {/* <li>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  About Us
+                </a>
+              </li> */}
+              <li>
+                <a href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
+                  Privacy Policy
+                </a>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                  Security
+                <a href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
+                  Terms of Service
                 </a>
               </li>
             </ul>
           </div>
-         
-
-          {/* Company links 
-          <div>
-            <h4 className="text-white font-semibold mb-4">Company</h4>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                  About
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                  Blog
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                  Careers
-                </a>
-              </li>
-            </ul>
-          </div> 
-           */}
 
           {/* Contact */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Contact</h4>
+            <h4 className="text-white font-semibold mb-4 text-sm">GET IN TOUCH</h4>
             <a
               href="https://wa.me/1234567890"
               target="_blank"
@@ -80,8 +77,9 @@ export default function FooterSection() {
               className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
             >
               <MessageCircle className="w-4 h-4" />
-              Message us on WhatsApp
+              WhatsApp Us
             </a>
+            <p className="text-sm text-gray-400 mt-4">24/7 Support Available</p>
           </div>
         </div>
 
@@ -89,12 +87,10 @@ export default function FooterSection() {
         <div className="border-t border-gray-800 my-8" />
 
         {/* Bottom section */}
-        <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-center">
           <p className="text-sm text-gray-400">
-            &copy; {currentYear} Hoscover. All rights reserved.
+            &copy; {currentYear} Hoscover by Jurya Technologies. All rights reserved.
           </p>
-
-
         </div>
       </div>
     </footer>

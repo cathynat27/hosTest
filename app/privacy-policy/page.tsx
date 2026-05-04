@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
             <div className="prose prose-lg max-w-none">
               <div className="space-y-8">
 
-                <div className="flex items-center justify-center bg-gradient-to-r from-[#97DC21] to-[#7cb81b] w-full py-6 px-10">
+                <div className="flex items-center justify-center bg-slate-400 w-full py-6 px-10">
                   <p className="text-4xl font-bold leading-relaxed text-white tracking-wide">
                     Privacy Policy
                   </p>
