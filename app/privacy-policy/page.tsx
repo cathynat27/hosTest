@@ -14,8 +14,8 @@ export default function PrivacyPolicyPage() {
             <div className="prose prose-lg max-w-none">
               <div className="space-y-8">
 
-                <div className="flex items-center justify-center bg-slate-400 w-full py-6 px-10">
-                  <p className="text-4xl font-bold leading-relaxed text-white tracking-wide">
+                <div className="flex items-center justify-center bg-slate-50 w-full py-6 px-10">
+                  <p className="text-4xl font-bold text-slate-900 mb-2">
                     Privacy Policy
                   </p>
                 </div>
@@ -25,7 +25,7 @@ export default function PrivacyPolicyPage() {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Collecting and Using Your Personal Data</h2>
                   <p className="text-gray-700 leading-relaxed">
-                    Jurya Technologies the proprietor of Hoscover shares your concerns about maintaining the integrity and privacy of personal information collected on the internet. We are committed to protecting your privacy, and this privacy policy ("Policy") is intended to describe our information collection and dissemination practices in connection with Hoscover websites or any mobile or service that links to or refers to this Policy (collectively, the "Sites").
+                    Jurya Technologies the proprietor of Hoscover shares your concerns about maintaining the integrity and privacy of personal information collected on the internet. We are committed to protecting your privacy, and this privacy policy  is intended to describe our information collection and dissemination practices in connection with Hoscover websites or any mobile or service that links to or refers to this Policy (collectively, the Sites).
                   </p>
                 </div>
 

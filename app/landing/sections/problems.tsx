@@ -30,7 +30,7 @@ export default function ProblemsSection() {
             Why Hotels Are Losing Bookings
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Every unanswered message is a missed opportunity. Here's what's really happening.
+            Every unanswered message is a missed opportunity. Here&apos;s what&apos;s really happening.
           </p>
         </div>
 
