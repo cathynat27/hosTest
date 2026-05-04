@@ -152,7 +152,7 @@ export default function DemoFormSection() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg p-8 border border-gray-200 shadow-lg">
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg p-8 border border-gray-200">
           <div className="space-y-6">
             {/* Full Name */}
             <div>
@@ -166,7 +166,7 @@ export default function DemoFormSection() {
                 value={formData.fullName}
                 onChange={handleChange}
                 placeholder="John Smith"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors shadow-lg ${errors.fullName
+                className={`w-full px-4 py-3 rounded-lg border transition-colors ${errors.fullName
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -191,7 +191,7 @@ export default function DemoFormSection() {
                 value={formData.propertyName}
                 onChange={handleChange}
                 placeholder="Sunset Beach Resort"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors shadow-lg ${errors.propertyName
+                className={`w-full px-4 py-3 rounded-lg border transition-colors ${errors.propertyName
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -216,7 +216,7 @@ export default function DemoFormSection() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="john@hotel.com"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors shadow-lg ${errors.email
+                className={`w-full px-4 py-3 rounded-lg border transition-colors  ${errors.email
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -241,7 +241,7 @@ export default function DemoFormSection() {
                 value={formData.whatsappNumber}
                 onChange={handleChange}
                 placeholder="+1 (555) 123-4567"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors  shadow-lg ${errors.whatsappNumber
+                className={`w-full px-4 py-3 rounded-lg border transition-colors ${errors.whatsappNumber
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -267,7 +267,7 @@ export default function DemoFormSection() {
                 value={formData.averageRooms}
                 onChange={handleChange}
                 placeholder="50"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors shadow-lg ${errors.averageRooms
+                className={`w-full px-4 py-3 rounded-lg border transition-colors  ${errors.averageRooms
                   ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200"
                   : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
                   } focus:outline-none focus:ring-2`}
@@ -287,7 +287,7 @@ export default function DemoFormSection() {
               variant="primary"
               isLoading={loading}
               disabled={loading}
-              className="w-full rounde-lg shadow-lg"
+              className="w-full rounde-lg shadow-lg font-italic "
             >
               Schedule My Demo
             </Button>

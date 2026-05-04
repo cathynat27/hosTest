@@ -15,7 +15,7 @@ export default function FooterSection() {
           <div>
             <h3 className="text-white font-bold text-lg mb-3">Hoscover</h3>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Run guest messaging like a premium concierge desk. Keep every escalation visible.
+              Run guest messaging like a premium concierge desk.<br></br> Keep every escalation visible.
             </p>
           </div>
 
@@ -39,6 +39,15 @@ export default function FooterSection() {
           {/* Contact */}
           <div>
             <h4 className="text-white font-semibold mb-4 text-sm">GET IN TOUCH</h4>
+            <a
+              href="https://wa.me/256757344599"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2 mb-2"
+            >
+              <MessageCircle className="w-4 h-4 text-green-500" />
+              Chat with us on WhatsApp
+            </a>
             <a
               href="mailto:info@juryatechnologies.com"
               className="text-sm text-slate-400 hover:text-white transition-colors block mb-2"
