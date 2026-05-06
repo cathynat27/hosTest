@@ -16,74 +16,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-// import { cancelCampaign, getCampaignById } from "@/lib/api"; // ← uncomment when backend is ready
+import { cancelCampaign, getCampaignById } from "@/lib/api";
 import { getCurrentUser, getToken } from "@/lib/auth";
 import type {
   CampaignDetail,
-  CampaignMessage,
   CampaignMessageStatus,
   CampaignStatus,
   CampaignType,
 } from "@/types";
-
-// ─── MOCK DATA 
-// Using the same function names as the real API so no call sites below need changing.
-
-const MOCK_MESSAGES: CampaignMessage[] = [
-  { id: "msg-001", campaign_id: "camp-001", guest_id: "g-01", hotel_id: "hotel-1", phone_number: "+1 555 000 0001", resolved_message_body: "Hi James! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-001", status: "read", failure_reason: null, sent_at: "2026-05-03T10:01:00Z", delivered_at: "2026-05-03T10:01:15Z", read_at: "2026-05-03T10:05:00Z", replied_at: "2026-05-03T10:08:00Z", conversation_id: "conv-42" },
-  { id: "msg-002", campaign_id: "camp-001", guest_id: "g-02", hotel_id: "hotel-1", phone_number: "+1 555 000 0002", resolved_message_body: "Hi Sofia! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-002", status: "read", failure_reason: null, sent_at: "2026-05-03T10:01:02Z", delivered_at: "2026-05-03T10:01:20Z", read_at: "2026-05-03T10:06:30Z", replied_at: null, conversation_id: null },
-  { id: "msg-003", campaign_id: "camp-001", guest_id: "g-03", hotel_id: "hotel-1", phone_number: "+1 555 000 0003", resolved_message_body: "Hi Liam! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-003", status: "read", failure_reason: null, sent_at: "2026-05-03T10:01:04Z", delivered_at: "2026-05-03T10:01:22Z", read_at: "2026-05-03T10:07:10Z", replied_at: null, conversation_id: null },
-  { id: "msg-004", campaign_id: "camp-001", guest_id: "g-04", hotel_id: "hotel-1", phone_number: "+1 555 000 0004", resolved_message_body: "Hi Amara! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-004", status: "read", failure_reason: null, sent_at: "2026-05-03T10:01:06Z", delivered_at: "2026-05-03T10:01:25Z", read_at: "2026-05-03T10:09:00Z", replied_at: "2026-05-03T10:15:00Z", conversation_id: "conv-43" },
-  { id: "msg-005", campaign_id: "camp-001", guest_id: "g-05", hotel_id: "hotel-1", phone_number: "+1 555 000 0005", resolved_message_body: "Hi Noah! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-005", status: "read", failure_reason: null, sent_at: "2026-05-03T10:01:08Z", delivered_at: "2026-05-03T10:01:28Z", read_at: "2026-05-03T10:11:00Z", replied_at: null, conversation_id: null },
-  { id: "msg-006", campaign_id: "camp-001", guest_id: "g-06", hotel_id: "hotel-1", phone_number: "+1 555 000 0006", resolved_message_body: "Hi Chen! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-006", status: "read", failure_reason: null, sent_at: "2026-05-03T10:01:10Z", delivered_at: "2026-05-03T10:01:30Z", read_at: "2026-05-03T10:13:00Z", replied_at: null, conversation_id: null },
-  { id: "msg-007", campaign_id: "camp-001", guest_id: "g-07", hotel_id: "hotel-1", phone_number: "+1 555 000 0007", resolved_message_body: "Hi Isla! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-007", status: "read", failure_reason: null, sent_at: "2026-05-03T10:01:12Z", delivered_at: "2026-05-03T10:01:32Z", read_at: "2026-05-03T10:14:00Z", replied_at: null, conversation_id: null },
-  { id: "msg-008", campaign_id: "camp-001", guest_id: "g-08", hotel_id: "hotel-1", phone_number: "+1 555 000 0008", resolved_message_body: "Hi Omar! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-008", status: "read", failure_reason: null, sent_at: "2026-05-03T10:01:14Z", delivered_at: "2026-05-03T10:01:35Z", read_at: "2026-05-03T10:16:00Z", replied_at: null, conversation_id: null },
-  { id: "msg-009", campaign_id: "camp-001", guest_id: "g-09", hotel_id: "hotel-1", phone_number: "+1 555 000 0009", resolved_message_body: "Hi Zara! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-009", status: "delivered", failure_reason: null, sent_at: "2026-05-03T10:01:16Z", delivered_at: "2026-05-03T10:01:38Z", read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-010", campaign_id: "camp-001", guest_id: "g-10", hotel_id: "hotel-1", phone_number: "+1 555 000 0010", resolved_message_body: "Hi Ethan! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-010", status: "delivered", failure_reason: null, sent_at: "2026-05-03T10:01:18Z", delivered_at: "2026-05-03T10:01:40Z", read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-011", campaign_id: "camp-001", guest_id: "g-11", hotel_id: "hotel-1", phone_number: "+1 555 000 0011", resolved_message_body: "Hi Mia! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-011", status: "delivered", failure_reason: null, sent_at: "2026-05-03T10:01:20Z", delivered_at: "2026-05-03T10:01:42Z", read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-012", campaign_id: "camp-001", guest_id: "g-12", hotel_id: "hotel-1", phone_number: "+1 555 000 0012", resolved_message_body: "Hi Kai! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-012", status: "delivered", failure_reason: null, sent_at: "2026-05-03T10:01:22Z", delivered_at: "2026-05-03T10:01:44Z", read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-013", campaign_id: "camp-001", guest_id: "g-13", hotel_id: "hotel-1", phone_number: "+1 555 000 0013", resolved_message_body: "Hi Ava! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-013", status: "sent", failure_reason: null, sent_at: "2026-05-03T10:01:24Z", delivered_at: null, read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-014", campaign_id: "camp-001", guest_id: "g-14", hotel_id: "hotel-1", phone_number: "+1 555 000 0014", resolved_message_body: "Hi Leo! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-014", status: "sent", failure_reason: null, sent_at: "2026-05-03T10:01:26Z", delivered_at: null, read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-015", campaign_id: "camp-001", guest_id: "g-15", hotel_id: "hotel-1", phone_number: "+1 555 000 0015", resolved_message_body: "Hi Nadia! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-015", status: "sent", failure_reason: null, sent_at: "2026-05-03T10:01:28Z", delivered_at: null, read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-016", campaign_id: "camp-001", guest_id: "g-16", hotel_id: "hotel-1", phone_number: "+1 555 000 0016", resolved_message_body: "Hi Ivan! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-016", status: "failed", failure_reason: "invalid_number", sent_at: "2026-05-03T10:01:30Z", delivered_at: null, read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-017", campaign_id: "camp-001", guest_id: "g-17", hotel_id: "hotel-1", phone_number: "+1 555 000 0017", resolved_message_body: "Hi Yuki! Enjoy a relaxing spa treatment today.", meta_message_id: null, status: "failed", failure_reason: "opt_out", sent_at: null, delivered_at: null, read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-018", campaign_id: "camp-001", guest_id: "g-18", hotel_id: "hotel-1", phone_number: "+1 555 000 0018", resolved_message_body: "Hi Priya! Enjoy a relaxing spa treatment today.", meta_message_id: null, status: "skipped", failure_reason: "no_opt_in", sent_at: null, delivered_at: null, read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-019", campaign_id: "camp-001", guest_id: "g-19", hotel_id: "hotel-1", phone_number: "+1 555 000 0019", resolved_message_body: "Hi Ben! Enjoy a relaxing spa treatment today.", meta_message_id: null, status: "skipped", failure_reason: "no_opt_in", sent_at: null, delivered_at: null, read_at: null, replied_at: null, conversation_id: null },
-  { id: "msg-020", campaign_id: "camp-001", guest_id: "g-20", hotel_id: "hotel-1", phone_number: "+1 555 000 0020", resolved_message_body: "Hi Lena! Enjoy a relaxing spa treatment today.", meta_message_id: "wamid-020", status: "queued", failure_reason: null, sent_at: null, delivered_at: null, read_at: null, replied_at: null, conversation_id: null },
-];
-
-const MOCK_DETAIL: CampaignDetail = {
-
-  id: "camp-001",
-  hotel_id: "hotel-1",
-  name: "Weekend Spa Offer — May 2026",
-  campaign_type: "in_stay_offer",
-  template_id: "tmpl-002",
-  variable_overrides: {},
-  audience_filters: { check_in_from: "2026-05-01", check_in_to: "2026-05-31" },
-  status: "completed",
-  scheduled_at: null,
-  sent_at: "2026-05-03T10:01:00Z",
-  completed_at: "2026-05-03T10:05:22Z",
-  created_by: "admin-1",
-  recipient_count_targeted: 20,
-  recipient_count_sent: 18,
-  recipient_count_skipped: 2,
-  created_at: "2026-05-02T14:30:00Z",
-  messages: MOCK_MESSAGES,
-  template: null,
-};
-
-async function getCampaignById(_id: string): Promise<CampaignDetail> {
-  await new Promise((r) => setTimeout(r, 700));
-  return MOCK_DETAIL;
-}
-
-async function cancelCampaign(_id: string): Promise<{ status: CampaignStatus }> {
-  await new Promise((r) => setTimeout(r, 500));
-  return { status: "cancelled" };
-}
-// ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Display constants ────────────────────────────────────────────────────────
 
@@ -225,7 +165,7 @@ export default function CampaignDetailPage() {
     setCancelling(true);
     try {
       const updated = await cancelCampaign(campaign.id);
-      setCampaign((prev) => (prev ? { ...prev, status: updated.status } : prev));
+      setCampaign((prev) => (prev ? { ...prev, status: updated.status as CampaignStatus } : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to cancel campaign");
     } finally {

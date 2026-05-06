@@ -20,220 +20,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-// import {
-//   createCampaign,
-//   getAudiencePreview,
-//   getTemplates,
-//   launchCampaign,
-//   updateCampaign,
-// } from "@/lib/api"; // ← uncomment when backend is ready
+import {
+  createCampaign,
+  getAudiencePreview,
+  getTemplates,
+  launchCampaign,
+  updateCampaign,
+} from "@/lib/api";
 import { getCurrentUser, getToken } from "@/lib/auth";
 import type {
   AudienceFilters,
   AudiencePreview,
-  Campaign,
   CampaignType,
-  CreateCampaignRequest,
   LaunchCampaignRequest,
   Template,
   UpdateCampaignRequest,
 } from "@/types";
-
-// ─── MOCK DATA — delete this entire block when the backend is ready ───────────
-// Using the same function names as the real API so no call sites below need changing.
-
-const MOCK_TEMPLATES: Template[] = [
-  {
-    id: "tmpl-001",
-    hotel_id: "hotel-1",
-    meta_template_name: "pre_arrival_room_upgrade",
-    meta_template_id: "wa-tmpl-001",
-    language_code: "en",
-    campaign_type: "pre_arrival_upsell",
-    status: "approved",
-    body_text:
-      "Hi {{guest_name}}, your check-in is coming up! Upgrade to a {{room_type}} for just {{offer_amount}} off. Reply YES to claim your upgrade.",
-    variable_definitions: [
-      { key: "guest_name", source: "guest.first_name" },
-      { key: "room_type", source: "booking.room_type_name" },
-      { key: "offer_amount", source: "static" },
-    ],
-    has_header: false,
-    has_cta_buttons: true,
-    has_quick_reply_buttons: false,
-    created_at: "2026-04-20T10:00:00Z",
-    approved_at: "2026-04-22T08:00:00Z",
-  },
-  {
-    id: "tmpl-002",
-    hotel_id: "hotel-1",
-    meta_template_name: "in_stay_spa_offer",
-    meta_template_id: "wa-tmpl-002",
-    language_code: "en",
-    campaign_type: "in_stay_offer",
-    status: "approved",
-    body_text:
-      "Hello {{guest_name}}! Enjoy a relaxing spa treatment today. Book before 3 PM and get {{offer_amount}} off. Reply BOOK to reserve your slot.",
-    variable_definitions: [
-      { key: "guest_name", source: "guest.first_name" },
-      { key: "offer_amount", source: "static" },
-    ],
-    has_header: false,
-    has_cta_buttons: false,
-    has_quick_reply_buttons: true,
-    created_at: "2026-04-20T10:00:00Z",
-    approved_at: "2026-04-22T08:00:00Z",
-  },
-  {
-    id: "tmpl-003",
-    hotel_id: "hotel-1",
-    meta_template_name: "fnb_happy_hour",
-    meta_template_id: "wa-tmpl-003",
-    language_code: "en",
-    campaign_type: "fnb_promotion",
-    status: "approved",
-    body_text:
-      "Hi {{guest_name}}! Join us for Happy Hour at the Rooftop Bar, 5–7 PM tonight. Show this message for {{offer_amount}} off your first round.",
-    variable_definitions: [
-      { key: "guest_name", source: "guest.first_name" },
-      { key: "offer_amount", source: "static" },
-    ],
-    has_header: false,
-    has_cta_buttons: false,
-    has_quick_reply_buttons: false,
-    created_at: "2026-04-20T10:00:00Z",
-    approved_at: "2026-04-22T08:00:00Z",
-  },
-  {
-    id: "tmpl-004",
-    hotel_id: "hotel-1",
-    meta_template_name: "late_checkout_offer",
-    meta_template_id: "wa-tmpl-004",
-    language_code: "en",
-    campaign_type: "late_checkout",
-    status: "approved",
-    body_text:
-      "Hi {{guest_name}}, extend your stay! Add a late checkout until 2 PM for just {{offer_amount}}. Reply LATE to add it to your booking.",
-    variable_definitions: [
-      { key: "guest_name", source: "guest.first_name" },
-      { key: "offer_amount", source: "static" },
-    ],
-    has_header: false,
-    has_cta_buttons: true,
-    has_quick_reply_buttons: false,
-    created_at: "2026-04-20T10:00:00Z",
-    approved_at: "2026-04-22T08:00:00Z",
-  },
-  {
-    id: "tmpl-005",
-    hotel_id: "hotel-1",
-    meta_template_name: "post_stay_winback",
-    meta_template_id: "wa-tmpl-005",
-    language_code: "en",
-    campaign_type: "post_stay_reengagement",
-    status: "approved",
-    body_text:
-      "We miss you, {{guest_name}}! Book your next stay before {{checkout_date}} and enjoy {{offer_amount}} off. Reply BOOK to get started.",
-    variable_definitions: [
-      { key: "guest_name", source: "guest.first_name" },
-      { key: "checkout_date", source: "static" },
-      { key: "offer_amount", source: "static" },
-    ],
-    has_header: false,
-    has_cta_buttons: true,
-    has_quick_reply_buttons: false,
-    created_at: "2026-04-20T10:00:00Z",
-    approved_at: "2026-04-22T08:00:00Z",
-  },
-  {
-    id: "tmpl-006",
-    hotel_id: "hotel-1",
-    meta_template_name: "seasonal_festive_package",
-    meta_template_id: "wa-tmpl-006",
-    language_code: "en",
-    campaign_type: "seasonal_event",
-    status: "pending",
-    body_text:
-      "Celebrate the season with us, {{guest_name}}! Our festive package includes breakfast, dinner & a gift. Book now for {{offer_amount}} off.",
-    variable_definitions: [
-      { key: "guest_name", source: "guest.first_name" },
-      { key: "offer_amount", source: "static" },
-    ],
-    has_header: false,
-    has_cta_buttons: false,
-    has_quick_reply_buttons: false,
-    created_at: "2026-05-05T09:00:00Z",
-    approved_at: null,
-  },
-];
-
-let _mockCampaignCounter = 10;
-
-async function createCampaign(data: CreateCampaignRequest): Promise<Campaign> {
-  await new Promise((r) => setTimeout(r, 600));
-  const id = `camp-${String(++_mockCampaignCounter).padStart(3, "0")}`;
-  return {
-    id,
-    hotel_id: "hotel-1",
-    name: data.name,
-    campaign_type: data.campaign_type,
-    template_id: null,
-    variable_overrides: {},
-    audience_filters: {},
-    status: "draft",
-    scheduled_at: null,
-    sent_at: null,
-    completed_at: null,
-    created_by: "admin-1",
-    recipient_count_targeted: 0,
-    recipient_count_sent: 0,
-    recipient_count_skipped: 0,
-    created_at: new Date().toISOString(),
-  };
-}
-
-async function updateCampaign(_id: string, _data: UpdateCampaignRequest): Promise<Campaign> {
-  await new Promise((r) => setTimeout(r, 400));
-  return {} as Campaign; /* return value is not used by any call site in this wizard */
-}
-
-async function getTemplates(campaignType: CampaignType): Promise<Template[]> {
-  await new Promise((r) => setTimeout(r, 700));
-  return MOCK_TEMPLATES.filter((t) => t.campaign_type === campaignType);
-}
-
-async function getAudiencePreview(filters: AudienceFilters): Promise<AudiencePreview> {
-  await new Promise((r) => setTimeout(r, 500));
-  /* Vary the count based on how many filters are applied: more filters → smaller audience. */
-  const filterCount = Object.keys(filters).filter(
-    (k) => filters[k as keyof AudienceFilters] !== undefined
-  ).length;
-  const total = Math.max(120 - filterCount * 15, 5);
-  return { total_matched: total, opted_in_count: Math.round(total * 0.72) };
-}
-
-async function launchCampaign(id: string, data: LaunchCampaignRequest): Promise<Campaign> {
-  await new Promise((r) => setTimeout(r, 800));
-  return {
-    id,
-    hotel_id: "hotel-1",
-    name: "Campaign",
-    campaign_type: "in_stay_offer",
-    template_id: null,
-    variable_overrides: {},
-    audience_filters: {},
-    status: data.send_immediately ? "processing" : "scheduled",
-    scheduled_at: data.scheduled_at ?? null,
-    sent_at: data.send_immediately ? new Date().toISOString() : null,
-    completed_at: null,
-    created_by: "admin-1",
-    recipient_count_targeted: 0,
-    recipient_count_sent: 0,
-    recipient_count_skipped: 0,
-    created_at: new Date().toISOString(),
-  };
-}
-// ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -801,21 +603,18 @@ export default function NewCampaignPage() {
 
               {/* Repeat guest toggle */}
               <label className="flex cursor-pointer items-center gap-3">
-                <div
-                  role="checkbox"
-                  aria-checked={!!filters.repeat_guest}
-                  tabIndex={0}
-                  onClick={() => {
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={!!filters.repeat_guest}
+                  onChange={() => {
                     setFilters((f) => ({ ...f, repeat_guest: f.repeat_guest ? undefined : true }));
                     /* Debounce via setTimeout so filter state is updated before the preview call. */
                     setTimeout(refreshAudiencePreview, 0);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === " " || e.key === "Enter") {
-                      setFilters((f) => ({ ...f, repeat_guest: f.repeat_guest ? undefined : true }));
-                      setTimeout(refreshAudiencePreview, 0);
-                    }
-                  }}
+                />
+                <div
+                  aria-hidden="true"
                   className={`flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-all ${filters.repeat_guest ? "bg-slate-900" : "bg-slate-200"
                     }`}
                 >

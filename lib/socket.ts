@@ -73,6 +73,19 @@ export function getSocket(): Socket | null {
       reconnectionDelayMax: 10_000,
       transports: ["websocket", "polling"],
     });
+
+    // Set up error handlers on initialization
+    socketInstance.on('connect_error', (error) => {
+      console.error('[socket] Connection error event:', error);
+    });
+
+    socketInstance.on('error', (error) => {
+      console.error('[socket] Socket error event:', error);
+    });
+
+    socketInstance.on('disconnect', (reason) => {
+      console.log('[socket] Disconnected:', reason);
+    });
   }
 
   if (!socketInstance.connected) {
@@ -83,6 +96,17 @@ export function getSocket(): Socket | null {
       return null;
     }
     socketInstance.auth = { token: freshToken };
+    console.log('[socket] Connecting with fresh token (length: ' + freshToken.length + ')');
+    
+    // Add error handlers before connecting
+    socketInstance.once('connect_error', (error) => {
+      console.error('[socket] Connection error:', error);
+    });
+    
+    socketInstance.once('error', (error) => {
+      console.error('[socket] Socket error:', error);
+    });
+    
     socketInstance.connect();
   }
 
