@@ -4,15 +4,22 @@ import { buildBackendUrl } from "@/lib/runtime-config";
 import {
   AnalyticsDateRange,
   AnalyticsOverview,
+  AudienceFilters,
+  AudiencePreview,
   Automation,
+  Campaign,
+  CampaignDetail,
+  CampaignType,
   Conversation,
   ConversationDetail,
   CreateAutomationRequest,
+  CreateCampaignRequest,
   CreateInviteRequest,
   CreateInviteResponse,
   GuestProfile,
   InviteRole,
   InviteTokenValidation,
+  LaunchCampaignRequest,
   LoginResponse,
   Message,
   OnboardHotelRequest,
@@ -20,6 +27,8 @@ import {
   RegisterRequest,
   RegisterFromInviteRequest,
   TeamMember,
+  Template,
+  UpdateCampaignRequest,
 } from "@/types";
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -507,5 +516,71 @@ export async function changeTeamMemberRole(id: string, role: "ADMIN" | "STAFF"):
   return apiRequest<TeamMember>(`/api/team/${id}/role`, {
     method: "POST",
     body: { role },
+  });
+}
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+
+export async function getCampaigns(): Promise<Campaign[]> {
+  const response = await apiRequest<unknown[]>("/api/campaigns");
+  if (!Array.isArray(response)) {
+    throw new Error("Backend response is invalid: expected a campaigns list");
+  }
+  return response as Campaign[];
+}
+
+export async function createCampaign(payload: CreateCampaignRequest): Promise<Campaign> {
+  return apiRequest<Campaign>("/api/campaigns", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function getCampaignById(id: string): Promise<CampaignDetail> {
+  return apiRequest<CampaignDetail>(`/api/campaigns/${id}`);
+}
+
+export async function updateCampaign(id: string, payload: UpdateCampaignRequest): Promise<Campaign> {
+  return apiRequest<Campaign>(`/api/campaigns/${id}`, {
+    method: "PUT",
+    body: payload,
+  });
+}
+
+export async function launchCampaign(id: string, payload: LaunchCampaignRequest): Promise<Campaign> {
+  const body = payload.send_immediately ? {} : { scheduled_at: payload.scheduled_at };
+  return apiRequest<Campaign>(`/api/campaigns/${id}/launch`, {
+    method: "POST",
+    body,
+  });
+}
+
+export async function cancelCampaign(id: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/api/campaigns/${id}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function getTemplates(campaignType?: CampaignType): Promise<Template[]> {
+  const path = campaignType
+    ? `/api/templates?campaign_type=${encodeURIComponent(campaignType)}`
+    : "/api/templates";
+  const response = await apiRequest<unknown[]>(path);
+  if (!Array.isArray(response)) {
+    throw new Error("Backend response is invalid: expected a templates list");
+  }
+  return response as Template[];
+}
+
+export async function syncTemplates(): Promise<{ synced: number; updated: number }> {
+  return apiRequest<{ synced: number; updated: number }>("/api/templates/sync", {
+    method: "POST",
+  });
+}
+
+export async function getAudiencePreview(filters: AudienceFilters): Promise<AudiencePreview> {
+  return apiRequest<AudiencePreview>("/api/campaigns/audience-preview", {
+    method: "POST",
+    body: filters,
   });
 }

@@ -32,6 +32,8 @@ function LoginForm() {
   }, []);
 
   useEffect(() => {
+    // Skip auto-redirect when dev logins are enabled so the user can pick an account
+    if (ENABLE_DEV_LOGINS) return;
     // Only auto-redirect if there's a token AND no error reason
     // This prevents loops when a session is invalid but still present
     const token = getToken();
