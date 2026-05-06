@@ -4,15 +4,22 @@ import { buildBackendUrl } from "@/lib/runtime-config";
 import {
   AnalyticsDateRange,
   AnalyticsOverview,
+  AudienceFilters,
+  AudiencePreview,
   Automation,
+  Campaign,
+  CampaignDetail,
+  CampaignType,
   Conversation,
   ConversationDetail,
   CreateAutomationRequest,
+  CreateCampaignRequest,
   CreateInviteRequest,
   CreateInviteResponse,
   GuestProfile,
   InviteRole,
   InviteTokenValidation,
+  LaunchCampaignRequest,
   LoginResponse,
   Message,
   OnboardHotelRequest,
@@ -20,6 +27,8 @@ import {
   RegisterRequest,
   RegisterFromInviteRequest,
   TeamMember,
+  Template,
+  UpdateCampaignRequest,
 } from "@/types";
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -509,3 +518,103 @@ export async function changeTeamMemberRole(id: string, role: "ADMIN" | "STAFF"):
     body: { role },
   });
 }
+
+// // ─── Campaigns ────────────────────────────────────────────────────────────────
+// // WhatsApp Newsletter / Campaign Messaging.
+// // Campaign creation follows a 5-stage wizard on the frontend; the backend
+// // persists a draft immediately on Stage 1 so that mid-flow exits don't lose work.
+
+// /** Fetch all campaigns for the current hotel. */
+// export async function getCampaigns(): Promise<Campaign[]> {
+//   const response = await apiRequest<unknown[]>("/api/campaigns");
+//   if (!Array.isArray(response)) {
+//     throw new Error("Backend response is invalid: expected a campaigns list");
+//   }
+//   return response as Campaign[];
+// }
+
+// /**
+//  * Create a campaign in draft state (Stage 1 of the wizard).
+//  * Returns the new campaign with its ID so subsequent stages can update it.
+//  */
+// export async function createCampaign(payload: CreateCampaignRequest): Promise<Campaign> {
+//   return apiRequest<Campaign>("/api/campaigns", {
+//     method: "POST",
+//     body: payload,
+//   });
+// }
+
+// /** Fetch a single campaign with its per-recipient message list and template. */
+// export async function getCampaignById(id: string): Promise<CampaignDetail> {
+//   return apiRequest<CampaignDetail>(`/api/campaigns/${id}`);
+// }
+
+// /**
+//  * Update a draft campaign (Stages 2–4 of the wizard).
+//  * The campaign stays in draft until explicitly launched.
+//  */
+// export async function updateCampaign(id: string, payload: UpdateCampaignRequest): Promise<Campaign> {
+//   return apiRequest<Campaign>(`/api/campaigns/${id}`, {
+//     method: "PUT",
+//     body: payload,
+//   });
+// }
+
+// /**
+//  * Launch a confirmed campaign (Stage 5).
+//  * After this call the campaign is immutable — status moves to scheduled or processing.
+//  */
+// export async function launchCampaign(id: string, payload: LaunchCampaignRequest): Promise<Campaign> {
+//   return apiRequest<Campaign>(`/api/campaigns/${id}/launch`, {
+//     method: "POST",
+//     body: payload,
+//   });
+// }
+
+// /**
+//  * Cancel a scheduled campaign.
+//  * Only possible up to 5 minutes before the scheduled send time.
+//  */
+// export async function cancelCampaign(id: string): Promise<Campaign> {
+//   return apiRequest<Campaign>(`/api/campaigns/${id}/cancel`, {
+//     method: "POST",
+//   });
+// }
+
+// // /**
+// //  * Fetch Meta-approved templates, optionally pre-filtered by campaign type.
+// //  * Campaign Type is used to enforce that transactional templates aren't
+// //  * accidentally used for promotional sends (a Meta policy violation risk).
+// //  */
+// export async function getTemplates(campaignType?: CampaignType): Promise<Template[]> {
+//   const path = campaignType
+//     ? `/api/campaigns/templates?campaign_type=${encodeURIComponent(campaignType)}`
+//     : "/api/campaigns/templates";
+//   const response = await apiRequest<unknown[]>(path);
+//   if (!Array.isArray(response)) {
+//     throw new Error("Backend response is invalid: expected a templates list");
+//   }
+//   return response as Template[];
+// }
+
+// /**
+//  * Trigger a manual sync of templates from Meta Business Manager.
+//  * MVP uses manual sync; automatic polling is a Phase 2 feature.
+//  */
+// export async function syncTemplates(): Promise<{ synced: number }> {
+//   return apiRequest<{ synced: number }>("/api/campaigns/templates/sync", {
+//     method: "POST",
+//   });
+// }
+
+// /**
+//  * Preview how many guests the current audience filters would match, and of
+//  * those how many have an active WhatsApp opt-in.
+//  * Called live during Stage 2 so staff can see recipient count before committing.
+//  */
+// export async function getAudiencePreview(filters: AudienceFilters): Promise<AudiencePreview> {
+//   return apiRequest<AudiencePreview>("/api/campaigns/audience-preview", {
+//     method: "POST",
+//     body: filters,
+//   });
+// }

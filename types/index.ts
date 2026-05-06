@@ -220,3 +220,143 @@ export type TeamMember = {
   is_active: boolean;
   last_login_at: string | null;
 };
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+// WhatsApp Newsletter / Campaign Messaging module.
+// A Campaign is a scheduled, template-based one-to-many message sent to opted-in
+// guests with the explicit purpose of driving a revenue action.
+
+/** The six revenue-intent categories a campaign must belong to. */
+export type CampaignType =
+  | "pre_arrival_upsell"
+  | "in_stay_offer"
+  | "fnb_promotion"
+  | "late_checkout"
+  | "post_stay_reengagement"
+  | "seasonal_event";
+
+/** Lifecycle states of a campaign from draft through to completion. */
+export type CampaignStatus =
+  | "draft"
+  | "scheduled"
+  | "processing"
+  | "completed"
+  | "cancelled"
+  | "failed";
+
+/** Meta's approval state for a WhatsApp Business message template. */
+export type TemplateStatus = "approved" | "pending" | "rejected" | "paused";
+
+/** Per-message delivery lifecycle tracked via Meta webhooks. */
+export type CampaignMessageStatus =
+  | "queued"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "failed"
+  | "skipped";
+
+/**
+ * Segment filters the hotel staff applies in Stage 2 of the creation wizard.
+ * All fields are optional; the opt-in check is always enforced server-side.
+ */
+export type AudienceFilters = {
+  check_in_from?: string;   // ISO date string
+  check_in_to?: string;
+  check_out_from?: string;
+  check_out_to?: string;
+  min_stay_nights?: number;
+  room_type?: string;
+  repeat_guest?: boolean;
+};
+
+/** A Meta-approved message template synced from the WhatsApp Business API. */
+export type Template = {
+  id: string;
+  hotel_id: string;
+  meta_template_name: string;
+  meta_template_id: string;
+  language_code: string;
+  campaign_type: CampaignType;
+  status: TemplateStatus;
+  body_text: string;
+  /** Each entry maps a placeholder key to its auto-source on the guest record. */
+  variable_definitions: Array<{ key: string; source: string }>;
+  has_header: boolean;
+  has_cta_buttons: boolean;
+  has_quick_reply_buttons: boolean;
+  created_at: string;
+  approved_at: string | null;
+};
+
+/** A send job created by hotel staff — one record per campaign. */
+export type Campaign = {
+  id: string;
+  hotel_id: string;
+  name: string;
+  campaign_type: CampaignType;
+  template_id: string | null;
+  variable_overrides: Record<string, string>;
+  audience_filters: AudienceFilters;
+  status: CampaignStatus;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  completed_at: string | null;
+  created_by: string;
+  recipient_count_targeted: number;
+  recipient_count_sent: number;
+  recipient_count_skipped: number;
+  created_at: string;
+};
+
+/**
+ * One record per individual message sent to a guest within a campaign.
+ * This is the atomic tracking unit for delivery reporting.
+ */
+export type CampaignMessage = {
+  id: string;
+  campaign_id: string;
+  guest_id: string;
+  hotel_id: string;
+  phone_number: string;
+  resolved_message_body: string;
+  meta_message_id: string | null;
+  status: CampaignMessageStatus;
+  failure_reason: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
+  replied_at: string | null;
+  conversation_id: string | null;
+};
+
+/** Campaign with its per-recipient messages and resolved template. */
+export type CampaignDetail = Campaign & {
+  messages: CampaignMessage[];
+  template: Template | null;
+};
+
+export type CreateCampaignRequest = {
+  name: string;
+  campaign_type: CampaignType;
+};
+
+export type UpdateCampaignRequest = {
+  name?: string;
+  campaign_type?: CampaignType;
+  template_id?: string;
+  variable_overrides?: Record<string, string>;
+  audience_filters?: AudienceFilters;
+  scheduled_at?: string | null;
+};
+
+export type LaunchCampaignRequest = {
+  send_immediately: boolean;
+  scheduled_at?: string;
+};
+
+/** Live audience size preview returned before campaign creation. */
+export type AudiencePreview = {
+  total_matched: number;
+  opted_in_count: number;
+};

@@ -55,6 +55,15 @@ function IconTeam({ className }: { className?: string }) {
   );
 }
 
+/** Paper-airplane icon — represents outbound campaign sending. */
+function IconCampaigns({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+    </svg>
+  );
+}
+
 function IconLogout({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
@@ -140,6 +149,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     { href: "/dashboard/guests", label: "Guests", icon: <IconUsers /> },
     ...(isAdmin
       ? [
+        { href: "/dashboard/campaigns", label: "Campaigns", icon: <IconCampaigns /> },
         { href: "/dashboard/automations", label: "Automations", icon: <IconBolt /> },
         { href: "/dashboard/analytics", label: "Analytics", icon: <IconChart /> },
         { href: "/dashboard/team", label: "Team", icon: <IconTeam /> },
