@@ -211,38 +211,65 @@ export default function TeamPage() {
               return (
                 <div
                   key={member.id}
-                  className={`flex items-center gap-4 px-5 py-3.5 ${idx < activeMembers.length - 1 ? "border-b border-slate-100" : ""}`}
+                  className={`px-4 py-3.5 sm:px-5 ${idx < activeMembers.length - 1 ? "border-b border-slate-100" : ""}`}
                 >
-                  {/* Avatar */}
-                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
-                    {avatarChars(member.name, member.email)}
-                  </div>
-
-                  {/* Info */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-slate-900">
-                        {member.name || member.email}
-                        {isSelf && <span className="ml-1 text-[10px] font-normal text-slate-400">(you)</span>}
-                      </p>
-                      <span className={`flex-shrink-0 rounded-full px-2 py-px text-[10px] font-semibold ${ROLE_COLORS[member.role]}`}>
-                        {member.role}
-                      </span>
+                  {/* Main row: avatar + info + desktop actions */}
+                  <div className="flex items-center gap-3">
+                    {/* Avatar */}
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                      {avatarChars(member.name, member.email)}
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-slate-400">
-                      {member.email} · Last login: {formatDate(member.last_login_at)}
-                    </p>
+
+                    {/* Info */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {member.name || member.email}
+                          {isSelf && <span className="ml-1 text-[10px] font-normal text-slate-400">(you)</span>}
+                        </p>
+                        <span className={`flex-shrink-0 rounded-full px-2 py-px text-[10px] font-semibold ${ROLE_COLORS[member.role]}`}>
+                          {member.role}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-slate-400">
+                        {member.email} · Last login: {formatDate(member.last_login_at)}
+                      </p>
+                    </div>
+
+                    {/* Desktop-only inline actions */}
+                    {!isSelf && (
+                      <div className="hidden sm:flex flex-shrink-0 items-center gap-2">
+                        <select
+                          value={member.role}
+                          onChange={(e) => void handleRoleChange(member.id, e.target.value as UserRole)}
+                          disabled={isProcessing}
+                          aria-label={`Change role for ${member.name || member.email}`}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:opacity-50"
+                        >
+                          <option value="STAFF">Staff</option>
+                          <option value="ADMIN">Admin</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeactivate(member.id)}
+                          disabled={isProcessing}
+                          className="rounded-lg border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {isProcessing ? "…" : "Deactivate"}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Actions */}
+                  {/* Mobile-only action row — indented to align with info text */}
                   {!isSelf && (
-                    <div className="flex flex-shrink-0 items-center gap-2">
+                    <div className="mt-2.5 flex items-center gap-2 pl-12 sm:hidden">
                       <select
                         value={member.role}
                         onChange={(e) => void handleRoleChange(member.id, e.target.value as UserRole)}
                         disabled={isProcessing}
                         aria-label={`Change role for ${member.name || member.email}`}
-                        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:opacity-50"
+                        className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:opacity-50"
                       >
                         <option value="STAFF">Staff</option>
                         <option value="ADMIN">Admin</option>

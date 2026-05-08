@@ -77,7 +77,7 @@ export default function AnalyticsPage() {
   return (
     <main className="flex h-full flex-col overflow-hidden bg-slate-50/50 p-3 sm:p-4">
       {/* Header */}
-      <header className="glass-card mb-3 flex flex-shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-2.5 sm:h-12">
+      <header className="glass-card mb-3 flex flex-shrink-0 flex-col gap-2 rounded-2xl px-4 py-3 sm:h-12 sm:flex-row sm:items-center sm:justify-between sm:py-2.5">
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold tracking-tight text-slate-900">Analytics</span>
           <span className="rounded-full bg-blue-600/10 px-2 py-px text-[10px] font-semibold text-blue-700">
