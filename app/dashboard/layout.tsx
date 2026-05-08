@@ -98,6 +98,23 @@ function NavItem({ href, icon, label, active }: NavItemProps) {
   );
 }
 
+function BottomNavItem({ href, icon, label, active }: NavItemProps) {
+  return (
+    <Link
+      href={href}
+      className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-colors ${active
+        ? "text-slate-900"
+        : "text-slate-400 active:text-slate-600"
+        }`}
+    >
+      <span className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors ${active ? "bg-slate-900 text-white" : ""}`}>
+        <span className="h-4 w-4">{icon}</span>
+      </span>
+      <span className="text-[10px] font-medium leading-none">{label}</span>
+    </Link>
+  );
+}
+
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -108,34 +125,45 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [configError, setConfigError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Resolve user
-    const user = getCurrentUser();
-    setCurrentUser(user);
-
-    // Attempt to initialise the socket.
-    //  • null   → no valid session (token missing/expired) → redirect to login
-    //  • throws → configuration problem               → show error in UI
+  const initializeDashboard = async () => {
     try {
+      // Resolve user
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+
+      // Attempt to initialise the socket
       const socket = getSocket();
+
       if (socket === null) {
         console.warn("[dashboard-layout] No socket/session, redirecting.");
         handleAuthFailure("missing");
         return;
       }
+
+      // Mark as mounted last
+      queueMicrotask(() => {
+        setMounted(true);
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setConfigError(
-        `Dashboard configuration error${message ? ` (${message})` : ""} — contact your administrator.`
-      );
+      const message =
+        error instanceof Error ? error.message : String(error);
+
+      queueMicrotask(() => {
+        setConfigError(
+          `Dashboard configuration error${
+            message ? ` (${message})` : ""
+          } — contact your administrator.`
+        );
+      });
     }
+  };
 
-    // Mark as mounted last so the shell only shows once auth is confirmed
-    setMounted(true);
+  initializeDashboard();
 
-    return () => {
-      disconnectSocket();
-    };
-  }, []);
+  return () => {
+    disconnectSocket();
+  };
+}, []);
 
   const logout = () => {
     clearAuthSession();
@@ -161,8 +189,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Only swap in error UI or user-specific content after mount.
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
-      {/* ── Left nav rail ──────────────────────────────────────────────────── */}
-      <nav className="relative z-40 flex w-[60px] flex-shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white py-3 shadow-sm">
+      {/* ── Left nav rail (desktop only) ───────────────────────────────────── */}
+      <nav className="relative z-40 hidden md:flex w-[60px] flex-shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white py-3 shadow-sm">
         {/* Brand mark */}
         <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 shadow shadow-slate-900/25">
           <IconHotel className="h-4 w-4 text-white" />
@@ -211,8 +239,38 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
       </nav>
 
+      {/* ── Bottom nav (mobile only) ────────────────────────────────────────── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden items-stretch border-t border-slate-200 bg-white shadow-[0_-1px_4px_rgba(0,0,0,0.06)]">
+        {mounted &&
+          navItems.map((item) => {
+            const active =
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname.startsWith(item.href);
+            return (
+              <BottomNavItem
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                active={active}
+              />
+            );
+          })}
+        <button
+          type="button"
+          onClick={logout}
+          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-slate-400 active:text-red-500 transition-colors"
+        >
+          <span className="flex h-6 w-6 items-center justify-center">
+            <IconLogout className="h-4 w-4" />
+          </span>
+          <span className="text-[10px] font-medium leading-none">Sign out</span>
+        </button>
+      </nav>
+
       {/* ── Page content ───────────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden pb-16 md:pb-0">
         {/* Config error overlay — shown client-side only after mount */}
         {mounted && configError ? (
           <div className="flex flex-1 items-center justify-center px-6 text-center">

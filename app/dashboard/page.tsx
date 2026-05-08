@@ -333,8 +333,8 @@ class ConversationPaneErrorBoundary extends Component<
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => getCurrentUser()?.role === "ADMIN");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => getCurrentUser()?.id ?? null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
@@ -368,9 +368,9 @@ export default function DashboardPage() {
   const conversationsRef = useRef<Conversation[]>([]);
   // Tracks real message IDs we sent so the socket echo doesn't create a duplicate bubble (CF-01)
   const pendingSentIds = useRef<Set<string>>(new Set());
-  // Kept in sync with selectedId on every render — safe to read inside socket handlers
+  // Kept in sync with selectedId — safe to read inside socket handlers
   const selectedIdRef = useRef<string | null>(null);
-  selectedIdRef.current = selectedId;
+  useEffect(() => { selectedIdRef.current = selectedId; });
   const composeInputRef = useRef<HTMLInputElement | null>(null);
   // Stale-request guard for loadDetail
   const loadDetailReqRef = useRef<number>(0);
@@ -455,6 +455,7 @@ export default function DashboardPage() {
     const reqId = ++loadDetailReqRef.current;
     setLoadingDetail(true);
     setDetailError(null);
+    setDetail(null);
     try {
       const result = await getConversationById(id);
       if (reqId !== loadDetailReqRef.current) return; // stale — newer request superseded this
@@ -468,6 +469,19 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSelectConversation = (id: string) => {
+    setSelectedId(id);
+    setUnreadCounts((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setReEscalationBanner(null);
+    setShowResolveConfirm(false);
+    wasAtBottomRef.current = true;
+  };
+
   // ── Mount / socket setup ─────────────────────────────────────────────────
 
   useEffect(() => {
@@ -476,10 +490,6 @@ export default function DashboardPage() {
       router.replace("/login");
       return;
     }
-
-    const me = getCurrentUser();
-    setIsAdmin(me?.role === "ADMIN");
-    setCurrentUserId(me?.id ?? null);
 
     // ── JWT expiry warning (P1-09) ─────────────────────────────────────────
     const expireTimers: ReturnType<typeof setTimeout>[] = [];
@@ -490,7 +500,7 @@ export default function DashboardPage() {
       if (warnAt > 0) {
         expireTimers.push(setTimeout(() => setSessionWarning(true), warnAt));
       } else if (msUntilExpiry > 0) {
-        setSessionWarning(true);
+        expireTimers.push(setTimeout(() => setSessionWarning(true), 0));
       }
       if (msUntilExpiry > 0) {
         expireTimers.push(
@@ -716,30 +726,21 @@ export default function DashboardPage() {
   // ── Conversation selection ───────────────────────────────────────────────
 
   useEffect(() => {
-    if (!selectedId) {
-      setDetail(null);
-      return;
-    }
-    // Clear unread badge and banner for newly selected conversation (P1-03)
-    setUnreadCounts((prev) => {
-      if (!prev[selectedId]) return prev;
-      const next = { ...prev };
-      delete next[selectedId];
-      return next;
-    });
-    setReEscalationBanner(null);
-    setShowResolveConfirm(false);
-    wasAtBottomRef.current = true; // reset scroll tracking for new conversation
-    void loadDetail(selectedId);
-  }, [selectedId]);
+    const fetchDetail = async () => {
+      if (!selectedId) return;
 
+      await loadDetail(selectedId);
+    };
+
+    fetchDetail();
+  }, [selectedId]);
   // ── Load team members for assignment (admin only) ───────────────────────
 
   useEffect(() => {
     if (!isAdmin) return;
     getTeamMembers()
       .then((members) => setTeamMembers(members.filter((m) => m.is_active)))
-      .catch(() => {/* non-critical — assignment dropdown just shows empty */});
+      .catch(() => {/* non-critical — assignment dropdown just shows empty */ });
   }, [isAdmin]);
 
   // ── Toast auto-dismiss ───────────────────────────────────────────────────
@@ -867,11 +868,11 @@ export default function DashboardPage() {
     setDetail((prev) =>
       prev
         ? {
-            ...prev,
-            latest_message: optimisticMessage.body,
-            last_message_at: optimisticMessage.sent_at,
-            messages: [...prev.messages, optimisticMessage],
-          }
+          ...prev,
+          latest_message: optimisticMessage.body,
+          last_message_at: optimisticMessage.sent_at,
+          messages: [...prev.messages, optimisticMessage],
+        }
         : prev,
     );
     updateInList({
@@ -887,13 +888,13 @@ export default function DashboardPage() {
       setDetail((prev) =>
         prev
           ? {
-              ...prev,
-              latest_message: saved.body,
-              last_message_at: saved.sent_at,
-              messages: prev.messages.map((message) =>
-                message.id === optimisticMessage.id ? saved : message,
-              ),
-            }
+            ...prev,
+            latest_message: saved.body,
+            last_message_at: saved.sent_at,
+            messages: prev.messages.map((message) =>
+              message.id === optimisticMessage.id ? saved : message,
+            ),
+          }
           : prev,
       );
       updateInList({ id: detail.id, latest_message: saved.body, last_message_at: saved.sent_at });
@@ -1037,10 +1038,10 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => {
-            setSelectedId(toast.conversationId);
+            handleSelectConversation(toast.conversationId);
             setToast(null);
           }}
-          className="animate-toast-in fixed right-5 top-5 z-50 flex items-start gap-3 rounded-2xl bg-slate-900 p-3.5 pr-5 shadow-2xl ring-1 ring-white/10 transition-opacity hover:opacity-90"
+          className="animate-toast-in fixed left-4 right-4 top-4 z-50 flex items-start gap-3 rounded-2xl bg-slate-900 p-3.5 pr-5 shadow-2xl ring-1 ring-white/10 transition-opacity hover:opacity-90 sm:left-auto sm:right-5 sm:top-5 sm:max-w-xs"
         >
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-red-500/20">
             <IconAlert className="h-4 w-4 text-red-400" />
@@ -1102,595 +1103,622 @@ export default function DashboardPage() {
       <ConversationPaneErrorBoundary>
         <div className="mt-3 flex min-h-0 flex-1 justify-center gap-3 md:justify-start">
 
-        {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-        <aside
-          className={`glass-card flex w-full max-w-[640px] flex-shrink-0 flex-col overflow-hidden rounded-2xl md:w-[325px] md:max-w-none ${
-            isMobileDetailOpen ? "hidden md:flex" : "flex"
-          }`}
-        >
-          {/* Sidebar header */}
-          <div className="flex items-center justify-between border-b border-slate-200/70 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-600">
-                Conversations
-              </h2>
-              {!loadingList && conversations.length > 0 && (
-                <span className="rounded-full bg-blue-600 px-1.5 py-px text-[10px] font-bold text-white">
-                  {filteredConversations.length}
+          {/* ── Sidebar ──────────────────────────────────────────────────────── */}
+          <aside
+            className={`glass-card flex w-full max-w-[640px] flex-shrink-0 flex-col overflow-hidden rounded-2xl md:w-[325px] md:max-w-none ${isMobileDetailOpen ? "hidden md:flex" : "flex"
+              }`}
+          >
+            {/* Sidebar header */}
+            <div className="flex items-center justify-between border-b border-slate-200/70 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-600">
+                  Conversations
+                </h2>
+                {!loadingList && conversations.length > 0 && (
+                  <span className="rounded-full bg-blue-600 px-1.5 py-px text-[10px] font-bold text-white">
+                    {filteredConversations.length}
+                  </span>
+                )}
+              </div>
+              {escalatedCount > 0 && (
+                <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-500 ring-1 ring-red-500/20">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                  {escalatedCount} urgent
                 </span>
               )}
             </div>
-            {escalatedCount > 0 && (
-              <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-500 ring-1 ring-red-500/20">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-                {escalatedCount} urgent
-              </span>
-            )}
-          </div>
 
-          <div className="border-b border-slate-200/70 px-3 py-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {([
-                { key: "ALL", label: "All" },
-                { key: "ESCALATED", label: "Escalated" },
-                { key: "HUMAN_ACTIVE", label: "In Progress" },
-                { key: "ACTIVE_AI", label: "AI" },
-              ] as Array<{ key: ConversationFilter; label: string }>).map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  onClick={() => setStatusFilter(option.key)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
-                    statusFilter === option.key
-                      ? "bg-slate-900 text-white"
-                      : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <input
-              type="text"
-              value={searchFilter}
-              onChange={(event) => setSearchFilter(event.target.value)}
-              placeholder="Search phone, message, or reason..."
-              className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-            />
-          </div>
-
-          {/* List */}
-          <div className="light-scroll flex-1 overflow-y-auto py-2">
-            {loadingList && <SidebarSkeleton />}
-
-            {listError && (
-              <div className="mx-3 mt-2 rounded-lg bg-red-500/10 px-3 py-2.5 text-xs text-red-700 ring-1 ring-red-500/20">
-                {listError}
-              </div>
-            )}
-
-            {!loadingList && !listError && filteredConversations.length === 0 && (
-              <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-800">
-                  <IconChat className="h-6 w-6 text-slate-500" />
-                </div>
-                <p className="text-sm text-slate-600">No matching conversations</p>
-                <p className="text-xs text-slate-500">Try another filter or search term</p>
-              </div>
-            )}
-
-            <div className="space-y-px px-2">
-              {filteredConversations.map((conv) => {
-                const meta = statusMeta(conv.status);
-                const isSelected = selectedId === conv.id;
-                const isEscalated = conv.status === "ESCALATED";
-                const unreadCount = unreadCounts[conv.id] ?? 0;
-
-                return (
+            <div className="border-b border-slate-200/70 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {([
+                  { key: "ALL", label: "All" },
+                  { key: "ESCALATED", label: "Escalated" },
+                  { key: "HUMAN_ACTIVE", label: "In Progress" },
+                  { key: "ACTIVE_AI", label: "AI" },
+                ] as Array<{ key: ConversationFilter; label: string }>).map((option) => (
                   <button
+                    key={option.key}
                     type="button"
-                    key={conv.id}
-                    onClick={() => setSelectedId(conv.id)}
-                    className={`group w-full rounded-lg border-l-2 p-3 text-left transition-all ${meta.cardBorder} ${
-                      isSelected
-                        ? "bg-blue-600/10 ring-1 ring-blue-500/30"
-                        : "hover:bg-white/65"
-                    }`}
+                    onClick={() => setStatusFilter(option.key)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${statusFilter === option.key
+                        ? "bg-slate-900 text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                      }`}
                   >
-                    <div className="flex items-start gap-3">
-                      {/* Avatar */}
-                      <div className="relative flex-shrink-0">
-                        <div
-                          className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold ${meta.avatar}`}
-                        >
-                          {avatarChars(conv.guest.phone_number)}
-                        </div>
-                        {/* Status dot */}
-                        <div
-                          className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-slate-900 ${meta.dot}`}
-                        />
-                        {/* Escalated pulse */}
-                        {isEscalated && (
-                          <div
-                            className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 animate-ping rounded-full border-2 border-slate-900 ${meta.dot} opacity-75`}
-                          />
-                        )}
-                      </div>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={searchFilter}
+                onChange={(event) => setSearchFilter(event.target.value)}
+                placeholder="Search phone, message, or reason..."
+                className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+              />
+            </div>
 
-                      {/* Text */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <p className="truncate text-sm font-semibold text-slate-900">
-                            {guestDisplayName(conv.guest.name, conv.guest.phone_number)}
+            {/* List */}
+            <div className="light-scroll flex-1 overflow-y-auto py-2">
+              {loadingList && <SidebarSkeleton />}
+
+              {listError && (
+                <div className="mx-3 mt-2 rounded-lg bg-red-500/10 px-3 py-2.5 text-xs text-red-700 ring-1 ring-red-500/20">
+                  {listError}
+                </div>
+              )}
+
+              {!loadingList && !listError && filteredConversations.length === 0 && (
+                <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-800">
+                    <IconChat className="h-6 w-6 text-slate-500" />
+                  </div>
+                  <p className="text-sm text-slate-600">No matching conversations</p>
+                  <p className="text-xs text-slate-500">Try another filter or search term</p>
+                </div>
+              )}
+
+              <div className="space-y-px px-2">
+                {filteredConversations.map((conv) => {
+                  const meta = statusMeta(conv.status);
+                  const isSelected = selectedId === conv.id;
+                  const isEscalated = conv.status === "ESCALATED";
+                  const unreadCount = unreadCounts[conv.id] ?? 0;
+
+                  return (
+                    <button
+                      type="button"
+                      key={conv.id}
+                      onClick={() => handleSelectConversation(conv.id)}
+                      className={`group w-full rounded-lg border-l-2 p-3 text-left transition-all ${meta.cardBorder} ${isSelected
+                          ? "bg-blue-600/10 ring-1 ring-blue-500/30"
+                          : "hover:bg-white/65"
+                        }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Avatar */}
+                        <div className="relative flex-shrink-0">
+                          <div
+                            className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold ${meta.avatar}`}
+                          >
+                            {avatarChars(conv.guest.phone_number)}
+                          </div>
+                          {/* Status dot */}
+                          <div
+                            className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-slate-900 ${meta.dot}`}
+                          />
+                          {/* Escalated pulse */}
+                          {isEscalated && (
+                            <div
+                              className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 animate-ping rounded-full border-2 border-slate-900 ${meta.dot} opacity-75`}
+                            />
+                          )}
+                        </div>
+
+                        {/* Text */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-slate-900">
+                              {guestDisplayName(conv.guest.name, conv.guest.phone_number)}
+                            </p>
+                            <div className="flex flex-shrink-0 items-center gap-1.5">
+                              {/* Unread badge (P1-03) */}
+                              {unreadCount > 0 && (
+                                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-900 px-1 text-[10px] font-bold text-white">
+                                  {unreadCount}
+                                </span>
+                              )}
+                              <span className="text-[10px] tabular-nums text-slate-500">
+                                {relativeTime(conv.last_message_at)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="mt-0.5 truncate text-xs text-slate-600">
+                            {truncate(conv.latest_message, 55)}
                           </p>
-                          <div className="flex flex-shrink-0 items-center gap-1.5">
-                            {/* Unread badge (P1-03) */}
-                            {unreadCount > 0 && (
-                              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-900 px-1 text-[10px] font-bold text-white">
-                                {unreadCount}
+
+                          <div className="mt-1.5 flex items-center gap-1.5">
+                            <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold ${meta.badge}`}>
+                              {meta.label}
+                            </span>
+                            {conv.escalation_reason && (
+                              <span className={`truncate rounded-full px-1.5 py-px text-[10px] font-medium ${meta.reasonTag}`}>
+                                {formatReason(conv.escalation_reason)}
                               </span>
                             )}
-                            <span className="text-[10px] tabular-nums text-slate-500">
-                              {relativeTime(conv.last_message_at)}
-                            </span>
                           </div>
                         </div>
-
-                        <p className="mt-0.5 truncate text-xs text-slate-600">
-                          {truncate(conv.latest_message, 55)}
-                        </p>
-
-                        <div className="mt-1.5 flex items-center gap-1.5">
-                          <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold ${meta.badge}`}>
-                            {meta.label}
-                          </span>
-                          {conv.escalation_reason && (
-                            <span className={`truncate rounded-full px-1.5 py-px text-[10px] font-medium ${meta.reasonTag}`}>
-                              {formatReason(conv.escalation_reason)}
-                            </span>
-                          )}
-                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
-
-        {/* ── Chat panel ───────────────────────────────────────────────────── */}
-        <section
-          className={`glass-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl ${isMobileDetailOpen ? "flex" : "hidden md:flex"}`}
-        >
-          {/* Empty state */}
-          {!selectedId && (
-            <div className="flex h-full flex-col items-center justify-center gap-4 bg-white/45">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-200 shadow-inner">
-                <IconChat className="h-8 w-8 text-slate-400" />
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-slate-700">No conversation selected</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Choose a conversation from the sidebar to begin
-                </p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
+          </aside>
 
-          {/* Conversation detail */}
-          {selectedId && (
-            <div className="flex h-full flex-col">
-              {/* Detail header */}
-              <div className="flex flex-shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-                {/* Back (mobile) */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(null)}
-                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 md:hidden"
-                  title="Back"
-                  aria-label="Back to conversations"
-                >
-                  <IconChevronLeft className="h-5 w-5" />
-                </button>
+          {/* ── Chat panel ───────────────────────────────────────────────────── */}
+          <section
+            className={`glass-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl ${isMobileDetailOpen ? "flex" : "hidden md:flex"}`}
+          >
+            {/* Empty state */}
+            {!selectedId && (
+              <div className="flex h-full flex-col items-center justify-center gap-4 bg-white/45">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-200 shadow-inner">
+                  <IconChat className="h-8 w-8 text-slate-400" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-slate-700">No conversation selected</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Choose a conversation from the sidebar to begin
+                  </p>
+                </div>
+              </div>
+            )}
 
-                {/* Guest avatar */}
-                {detail && (
-                  <div
-                    className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                      detail.status === "ESCALATED"
-                        ? "bg-red-500/10"
-                        : detail.status === "HUMAN_ACTIVE"
-                          ? "bg-amber-500/10"
-                          : "bg-slate-500/10"
-                    }`}
-                  >
-                    <span
-                      className={
-                        detail.status === "ESCALATED"
-                          ? "text-red-500"
-                          : detail.status === "HUMAN_ACTIVE"
-                            ? "text-amber-500"
-                            : "text-slate-400"
-                      }
+            {/* Conversation detail */}
+            {selectedId && (
+              <div className="flex h-full flex-col">
+                {/* Detail header */}
+                <div className="flex-shrink-0 border-b border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    {/* Back (mobile) */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(null)}
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 md:hidden"
+                      title="Back"
+                      aria-label="Back to conversations"
                     >
-                      {avatarChars(detail.guest.phone_number)}
-                    </span>
-                  </div>
-                )}
+                      <IconChevronLeft className="h-5 w-5" />
+                    </button>
 
-                {/* Name + status */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    {isEditingName ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          autoFocus
-                          value={nameInput}
-                          onChange={(e) => setNameInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") void onSaveName();
-                            if (e.key === "Escape") setIsEditingName(false);
-                          }}
-                          placeholder="Enter customer name"
-                          className="rounded-lg border border-slate-300 px-2 py-1 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-300 w-44"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void onSaveName()}
-                          disabled={isSavingName}
-                          className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                    {/* Guest avatar */}
+                    {detail && (
+                      <div
+                        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${detail.status === "ESCALATED"
+                            ? "bg-red-500/10"
+                            : detail.status === "HUMAN_ACTIVE"
+                              ? "bg-amber-500/10"
+                              : "bg-slate-500/10"
+                          }`}
+                      >
+                        <span
+                          className={
+                            detail.status === "ESCALATED"
+                              ? "text-red-500"
+                              : detail.status === "HUMAN_ACTIVE"
+                                ? "text-amber-500"
+                                : "text-slate-400"
+                          }
                         >
-                          {isSavingName ? "…" : "Save"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingName(false)}
-                          className="rounded-lg px-2 py-1 text-[11px] text-slate-500 hover:bg-slate-100"
-                        >
-                          Cancel
-                        </button>
+                          {avatarChars(detail.guest.phone_number)}
+                        </span>
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <h2 className="truncate text-sm font-semibold text-slate-900">
-                          {detail ? guestDisplayName(detail.guest.name, detail.guest.phone_number) : "Loading…"}
-                        </h2>
-                        {detail && (
+                    )}
+
+                    {/* Name + status */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        {isEditingName ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              autoFocus
+                              value={nameInput}
+                              onChange={(e) => setNameInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") void onSaveName();
+                                if (e.key === "Escape") setIsEditingName(false);
+                              }}
+                              placeholder="Enter customer name"
+                              className="rounded-lg border border-slate-300 px-2 py-1 text-sm text-slate-900 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-300 w-44"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void onSaveName()}
+                              disabled={isSavingName}
+                              className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                            >
+                              {isSavingName ? "…" : "Save"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingName(false)}
+                              className="rounded-lg px-2 py-1 text-[11px] text-slate-500 hover:bg-slate-100"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <h2 className="truncate text-sm font-semibold text-slate-900">
+                              {detail ? guestDisplayName(detail.guest.name, detail.guest.phone_number) : "Loading…"}
+                            </h2>
+                            {detail && (
+                              <button
+                                type="button"
+                                title="Edit customer name"
+                                onClick={() => { setNameInput(detail.guest.name ?? ""); setIsEditingName(true); }}
+                                className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition"
+                              >
+                                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {detail && !isEditingName && (
+                          <span
+                            className={`flex-shrink-0 rounded-full px-2 py-px text-[10px] font-semibold ${statusMeta(detail.status).badge}`}
+                          >
+                            {statusMeta(detail.status).label}
+                          </span>
+                        )}
+                      </div>
+                      {detail?.escalation_reason && (
+                        <p className="mt-px text-[11px] text-slate-500">
+                          Escalation reason ·{" "}
+                          <span className={`rounded-full px-1.5 py-px font-medium capitalize ${statusMeta(detail.status).reasonTag}`}>
+                            {formatReason(detail.escalation_reason)}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Admin: assign to staff */}
+                    {isAdmin && detail && (
+                      <select
+                        value={detail.assigned_staff_id ?? ""}
+                        onChange={(e) => { if (e.target.value) void onAssign(e.target.value); }}
+                        disabled={isAssigning}
+                        aria-label="Assign conversation to staff member"
+                        className="hidden rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:opacity-50 sm:block"
+                      >
+                        <option value="">Unassigned</option>
+                        {teamMembers.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name || m.email}</option>
+                        ))}
+                      </select>
+                    )}
+
+                    {/* Admin: booking confirmed */}
+                    {isAdmin && detail?.status === "HUMAN_ACTIVE" && !(detail as ConversationDetail & { booking_confirmed?: boolean }).booking_confirmed && (
+                      <button
+                        type="button"
+                        onClick={() => setShowBookingModal(true)}
+                        className="hidden items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 sm:flex"
+                      >
+                        Booking Confirmed
+                      </button>
+                    )}
+                    {(detail as ConversationDetail & { booking_confirmed?: boolean })?.booking_confirmed && (
+                      <span className="hidden items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700 sm:flex">
+                        ✓ Booked
+                      </span>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
+                      {(detail?.status === "ESCALATED" || detail?.status === "ACTIVE_AI") && (
+                        <button
+                          type="button"
+                          onClick={onTakeOver}
+                          disabled={isTakingOver}
+                          className="flex items-center gap-1 rounded-xl bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-slate-900/20 transition-all hover:bg-slate-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-400 sm:gap-1.5 sm:px-4 sm:py-2 sm:text-sm"
+                        >
+                          <IconBolt className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                          {isTakingOver ? "Taking…" : "Take Over"}
+                        </button>
+                      )}
+                      {detail?.status === "HUMAN_ACTIVE" && !showResolveConfirm && (
+                        <button
+                          type="button"
+                          onClick={() => setShowResolveConfirm(true)}
+                          disabled={isResolving}
+                          className="flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-400 sm:gap-1.5 sm:px-4 sm:py-2 sm:text-sm"
+                        >
+                          <IconCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                          Resolve
+                        </button>
+                      )}
+                      {detail?.status === "HUMAN_ACTIVE" && showResolveConfirm && (
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <span className="hidden text-xs text-slate-500 sm:inline">Resolve?</span>
                           <button
                             type="button"
-                            title="Edit customer name"
-                            onClick={() => { setNameInput(detail.guest.name ?? ""); setIsEditingName(true); }}
-                            className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition"
+                            onClick={() => setShowResolveConfirm(false)}
+                            className="rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 sm:px-3"
                           >
-                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
-                            </svg>
+                            Cancel
                           </button>
-                        )}
-                      </div>
-                    )}
-                    {detail && !isEditingName && (
-                      <span
-                        className={`flex-shrink-0 rounded-full px-2 py-px text-[10px] font-semibold ${statusMeta(detail.status).badge}`}
-                      >
-                        {statusMeta(detail.status).label}
-                      </span>
-                    )}
-                  </div>
-                  {detail?.escalation_reason && (
-                    <p className="mt-px text-[11px] text-slate-500">
-                      Escalation reason ·{" "}
-                      <span className={`rounded-full px-1.5 py-px font-medium capitalize ${statusMeta(detail.status).reasonTag}`}>
-                        {formatReason(detail.escalation_reason)}
-                      </span>
-                    </p>
-                  )}
-                </div>
-
-                {/* Admin: assign to staff */}
-                {isAdmin && detail && (
-                  <select
-                    value={detail.assigned_staff_id ?? ""}
-                    onChange={(e) => { if (e.target.value) void onAssign(e.target.value); }}
-                    disabled={isAssigning}
-                    aria-label="Assign conversation to staff member"
-                    className="hidden rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:opacity-50 sm:block"
-                  >
-                    <option value="">Unassigned</option>
-                    {teamMembers.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name || m.email}</option>
-                    ))}
-                  </select>
-                )}
-
-                {/* Admin: booking confirmed */}
-                {isAdmin && detail?.status === "HUMAN_ACTIVE" && !(detail as ConversationDetail & { booking_confirmed?: boolean }).booking_confirmed && (
-                  <button
-                    type="button"
-                    onClick={() => setShowBookingModal(true)}
-                    className="hidden items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 sm:flex"
-                  >
-                    Booking Confirmed
-                  </button>
-                )}
-                {(detail as ConversationDetail & { booking_confirmed?: boolean })?.booking_confirmed && (
-                  <span className="hidden items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700 sm:flex">
-                    ✓ Booked
-                  </span>
-                )}
-
-                {/* Action buttons */}
-                <div className="flex flex-shrink-0 items-center gap-2">
-                  {(detail?.status === "ESCALATED" || detail?.status === "ACTIVE_AI") && (
-                    <button
-                      type="button"
-                      onClick={onTakeOver}
-                      disabled={isTakingOver}
-                      className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-slate-900/20 transition-all hover:bg-slate-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-400"
-                    >
-                      <IconBolt className="h-3.5 w-3.5" />
-                      {isTakingOver ? "Taking over…" : "Take Over"}
-                    </button>
-                  )}
-                  {detail?.status === "HUMAN_ACTIVE" && !showResolveConfirm && (
-                    <button
-                      type="button"
-                      onClick={() => setShowResolveConfirm(true)}
-                      disabled={isResolving}
-                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-400"
-                    >
-                      <IconCheck className="h-3.5 w-3.5" />
-                      Resolve
-                    </button>
-                  )}
-                  {detail?.status === "HUMAN_ACTIVE" && showResolveConfirm && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500">Mark as resolved?</span>
-                      <button
-                        type="button"
-                        onClick={() => setShowResolveConfirm(false)}
-                        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowResolveConfirm(false); void onResolve(); }}
-                        disabled={isResolving}
-                        className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-400"
-                      >
-                        <IconCheck className="h-3 w-3" />
-                        {isResolving ? "Resolving…" : "Confirm"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Re-escalation banner (P1-02) */}
-              {reEscalationBanner && (
-                <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2.5">
-                  <p className="text-xs font-medium text-amber-800">{reEscalationBanner}</p>
-                  <button
-                    type="button"
-                    onClick={() => setReEscalationBanner(null)}
-                    className="text-xs text-amber-600 underline hover:text-amber-800"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              )}
-
-              {/* Error banner */}
-              {detailError && (
-                <div className="flex-shrink-0 border-b border-red-100 bg-red-50 px-4 py-2.5 text-xs text-red-700">
-                  {detailError}
-                </div>
-              )}
-
-              {/* Messages */}
-              <div
-                ref={chatRef}
-                className="chat-bg light-scroll min-h-0 flex-1 overflow-y-auto px-5 py-5"
-              >
-                {loadingDetail && <ChatSkeleton />}
-
-                {!loadingDetail && detail && (
-                  <div className="space-y-1">
-                    {detail.messages.map((msg, idx) => {
-                      const prev = detail.messages[idx - 1];
-                      const showDate =
-                        !prev ||
-                        new Date(msg.sent_at).toDateString() !==
-                          new Date(prev.sent_at).toDateString();
-                      const isStaff = msg.sender_type === "staff";
-                      const isNote = isStaff && msg.is_note === true;
-                      const isMe = isStaff && (msg.sender_id === currentUserId || !msg.sender_id);
-                      const staffSender = isStaff && !isMe
-                        ? teamMembers.find((m) => m.id === msg.sender_id)
-                        : null;
-                      const staffLabel = staffSender
-                        ? (staffSender.name || staffSender.email)
-                        : isStaff && !isMe
-                          ? "Staff"
-                          : null;
-                      const isAI = msg.sender_type === "ai" ||
-                        (msg.direction === "outbound" && msg.sender_type !== "staff");
-                      const isGuest = !isStaff && !isAI;
-
-                      return (
-                        <Fragment key={msg.id}>
-                          {/* Date separator */}
-                          {showDate && (
-                            <div className="flex items-center gap-3 py-3">
-                              <div className="h-px flex-1 bg-slate-200" />
-                              <span className="text-[11px] font-medium text-slate-400">
-                                {msgDate(msg.sent_at)}
-                              </span>
-                              <div className="h-px flex-1 bg-slate-200" />
-                            </div>
-                          )}
-
-                          {/* Bubble */}
-                          <div
-                            className={`animate-fade-up flex ${isGuest ? "justify-start" : "justify-end"} mb-1`}
+                          <button
+                            type="button"
+                            onClick={() => { setShowResolveConfirm(false); void onResolve(); }}
+                            disabled={isResolving}
+                            className="flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-400"
                           >
-                            <div className="max-w-[78%] md:max-w-[62%]">
-                              {/* Label */}
-                              {/* Sender label */}
-                              {isAI && (
-                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-sky-600">AI</p>
-                              )}
-                              {isNote && (
-                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-amber-600">
-                                  {staffLabel ?? "You"} · Note
-                                </p>
-                              )}
-                              {isStaff && !isNote && isMe && (
-                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">You</p>
-                              )}
-                              {isStaff && !isNote && !isMe && staffLabel && (
-                                <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-indigo-600">
-                                  {staffLabel}
-                                </p>
-                              )}
+                            <IconCheck className="h-3 w-3" />
+                            {isResolving ? "…" : "Confirm"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                              {/* Bubble body */}
-                              <div
-                                className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
-                                  isNote
-                                    ? "rounded-tr-md border border-dashed border-amber-300 bg-amber-50 text-amber-900"
-                                    : isMe
-                                      ? "rounded-tr-md bg-slate-900 text-white shadow-slate-900/20"
-                                      : isStaff
-                                        ? "rounded-tr-md bg-indigo-600 text-white shadow-indigo-600/20"
-                                        : isAI
-                                          ? "rounded-tr-md bg-sky-100 text-slate-800 ring-1 ring-sky-200"
-                                          : "rounded-tl-md bg-white text-slate-800 ring-1 ring-inset ring-slate-200"
-                                }`}
-                              >
-                                {msg.body}
+                  {/* Mobile-only secondary row: assign + booking (admin only) */}
+                  {isAdmin && detail && (
+                    <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-2 sm:hidden">
+                      <select
+                        value={detail.assigned_staff_id ?? ""}
+                        onChange={(e) => { if (e.target.value) void onAssign(e.target.value); }}
+                        disabled={isAssigning}
+                        aria-label="Assign conversation to staff member"
+                        className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:opacity-50"
+                      >
+                        <option value="">Unassigned</option>
+                        {teamMembers.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name || m.email}</option>
+                        ))}
+                      </select>
+                      {detail?.status === "HUMAN_ACTIVE" && !(detail as ConversationDetail & { booking_confirmed?: boolean }).booking_confirmed && (
+                        <button
+                          type="button"
+                          onClick={() => setShowBookingModal(true)}
+                          className="flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        >
+                          Booking ✓
+                        </button>
+                      )}
+                      {(detail as ConversationDetail & { booking_confirmed?: boolean })?.booking_confirmed && (
+                        <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                          ✓ Booked
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Re-escalation banner (P1-02) */}
+                {reEscalationBanner && (
+                  <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2.5">
+                    <p className="text-xs font-medium text-amber-800">{reEscalationBanner}</p>
+                    <button
+                      type="button"
+                      onClick={() => setReEscalationBanner(null)}
+                      className="text-xs text-amber-600 underline hover:text-amber-800"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {/* Error banner */}
+                {detailError && (
+                  <div className="flex-shrink-0 border-b border-red-100 bg-red-50 px-4 py-2.5 text-xs text-red-700">
+                    {detailError}
+                  </div>
+                )}
+
+                {/* Messages */}
+                <div
+                  ref={chatRef}
+                  className="chat-bg light-scroll min-h-0 flex-1 overflow-y-auto px-5 py-5"
+                >
+                  {loadingDetail && <ChatSkeleton />}
+
+                  {!loadingDetail && detail && (
+                    <div className="space-y-1">
+                      {detail.messages.map((msg, idx) => {
+                        const prev = detail.messages[idx - 1];
+                        const showDate =
+                          !prev ||
+                          new Date(msg.sent_at).toDateString() !==
+                          new Date(prev.sent_at).toDateString();
+                        const isStaff = msg.sender_type === "staff";
+                        const isNote = isStaff && msg.is_note === true;
+                        const isMe = isStaff && (msg.sender_id === currentUserId || !msg.sender_id);
+                        const staffSender = isStaff && !isMe
+                          ? teamMembers.find((m) => m.id === msg.sender_id)
+                          : null;
+                        const staffLabel = staffSender
+                          ? (staffSender.name || staffSender.email)
+                          : isStaff && !isMe
+                            ? "Staff"
+                            : null;
+                        const isAI = msg.sender_type === "ai" ||
+                          (msg.direction === "outbound" && msg.sender_type !== "staff");
+                        const isGuest = !isStaff && !isAI;
+
+                        return (
+                          <Fragment key={msg.id}>
+                            {/* Date separator */}
+                            {showDate && (
+                              <div className="flex items-center gap-3 py-3">
+                                <div className="h-px flex-1 bg-slate-200" />
+                                <span className="text-[11px] font-medium text-slate-400">
+                                  {msgDate(msg.sent_at)}
+                                </span>
+                                <div className="h-px flex-1 bg-slate-200" />
                               </div>
+                            )}
 
-                              {/* Claude draft — shown when AI had a draft but it wasn't delivered */}
-                              {isGuest && msg.ai_draft_text && (
-                                <details className="mt-1.5">
-                                  <summary className="cursor-pointer select-none text-[10px] font-medium text-amber-500 hover:text-amber-400">
-                                    Claude&apos;s draft (not delivered) ▾
-                                  </summary>
-                                  <div className="mt-1 rounded-xl bg-amber-50 px-3 py-2 text-xs italic text-amber-800 ring-1 ring-inset ring-amber-100">
-                                    {msg.ai_draft_text}
-                                  </div>
-                                </details>
-                              )}
+                            {/* Bubble */}
+                            <div
+                              className={`animate-fade-up flex ${isGuest ? "justify-start" : "justify-end"} mb-1`}
+                            >
+                              <div className="max-w-[78%] md:max-w-[62%]">
+                                {/* Label */}
+                                {/* Sender label */}
+                                {isAI && (
+                                  <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-sky-600">AI</p>
+                                )}
+                                {isNote && (
+                                  <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                                    {staffLabel ?? "You"} · Note
+                                  </p>
+                                )}
+                                {isStaff && !isNote && isMe && (
+                                  <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">You</p>
+                                )}
+                                {isStaff && !isNote && !isMe && staffLabel && (
+                                  <p className="mb-1 text-right text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                                    {staffLabel}
+                                  </p>
+                                )}
 
-                              {/* Time */}
-                              <p
-                                className={`mt-1 text-[10px] text-slate-400 ${isGuest ? "text-left" : "text-right"}`}
-                              >
-                                {msgTime(msg.sent_at)}
-                              </p>
+                                {/* Bubble body */}
+                                <div
+                                  className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${isNote
+                                      ? "rounded-tr-md border border-dashed border-amber-300 bg-amber-50 text-amber-900"
+                                      : isMe
+                                        ? "rounded-tr-md bg-slate-900 text-white shadow-slate-900/20"
+                                        : isStaff
+                                          ? "rounded-tr-md bg-indigo-600 text-white shadow-indigo-600/20"
+                                          : isAI
+                                            ? "rounded-tr-md bg-sky-100 text-slate-800 ring-1 ring-sky-200"
+                                            : "rounded-tl-md bg-white text-slate-800 ring-1 ring-inset ring-slate-200"
+                                    }`}
+                                >
+                                  {msg.body}
+                                </div>
+
+                                {/* Claude draft — shown when AI had a draft but it wasn't delivered */}
+                                {isGuest && msg.ai_draft_text && (
+                                  <details className="mt-1.5">
+                                    <summary className="cursor-pointer select-none text-[10px] font-medium text-amber-500 hover:text-amber-400">
+                                      Claude&apos;s draft (not delivered) ▾
+                                    </summary>
+                                    <div className="mt-1 rounded-xl bg-amber-50 px-3 py-2 text-xs italic text-amber-800 ring-1 ring-inset ring-amber-100">
+                                      {msg.ai_draft_text}
+                                    </div>
+                                  </details>
+                                )}
+
+                                {/* Time */}
+                                <p
+                                  className={`mt-1 text-[10px] text-slate-400 ${isGuest ? "text-left" : "text-right"}`}
+                                >
+                                  {msgTime(msg.sent_at)}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </Fragment>
-                      );
-                    })}
+                          </Fragment>
+                        );
+                      })}
 
-                    {detail.messages.length === 0 && (
-                      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-                        <p className="text-sm text-slate-400">No messages yet</p>
-                        <p className="text-xs text-slate-300">Messages will appear here</p>
+                      {detail.messages.length === 0 && (
+                        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+                          <p className="text-sm text-slate-400">No messages yet</p>
+                          <p className="text-xs text-slate-300">Messages will appear here</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Compose */}
+                {(detail?.status === "HUMAN_ACTIVE" || detail?.status === "ESCALATED") && (
+                  <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-3">
+                    {detail?.status === "ESCALATED" && (
+                      <p className="mb-2 text-xs text-amber-600">
+                        Take over this conversation to send your reply.
+                      </p>
+                    )}
+
+                    {/* Mode toggle (Reply / Note) — only when HUMAN_ACTIVE */}
+                    {detail?.status === "HUMAN_ACTIVE" && (
+                      <div className="mb-2 flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsNoteMode(false)}
+                          className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${!isNoteMode ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}
+                        >
+                          Reply
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsNoteMode(true)}
+                          className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${isNoteMode ? "bg-amber-500 text-white" : "text-slate-500 hover:bg-slate-100"}`}
+                        >
+                          Add Note
+                        </button>
                       </div>
                     )}
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!replyText.trim()) return;
+                        if (isNoteMode) {
+                          void onSendNote(replyText.trim());
+                        } else if (detail?.status === "HUMAN_ACTIVE") {
+                          void onSendReply(e);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          ref={composeInputRef}
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder={
+                            detail?.status === "ESCALATED"
+                              ? "Draft your reply…"
+                              : isNoteMode
+                                ? "Add an internal note (not sent to guest)…"
+                                : "Type your reply to the guest…"
+                          }
+                          disabled={detail?.status === "ESCALATED"}
+                          className={`flex-1 rounded-xl border px-4 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 disabled:cursor-text disabled:opacity-60 ${isNoteMode
+                              ? "border-amber-200 bg-amber-50 focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
+                              : "border-slate-200 bg-slate-50 focus:border-slate-500 focus:bg-white focus:ring-4 focus:ring-slate-200"
+                            }`}
+                        />
+                        <button
+                          type="submit"
+                          disabled={isSending || !replyText.trim() || detail?.status === "ESCALATED"}
+                          className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 ${isNoteMode
+                              ? "bg-amber-500 shadow-amber-500/20 hover:bg-amber-600"
+                              : "bg-slate-900 shadow-slate-900/20 hover:bg-slate-700"
+                            }`}
+                        >
+                          {isSending ? (
+                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : (
+                            <IconSend className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 )}
               </div>
-
-              {/* Compose */}
-              {(detail?.status === "HUMAN_ACTIVE" || detail?.status === "ESCALATED") && (
-                <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-3">
-                  {detail?.status === "ESCALATED" && (
-                    <p className="mb-2 text-xs text-amber-600">
-                      Take over this conversation to send your reply.
-                    </p>
-                  )}
-
-                  {/* Mode toggle (Reply / Note) — only when HUMAN_ACTIVE */}
-                  {detail?.status === "HUMAN_ACTIVE" && (
-                    <div className="mb-2 flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setIsNoteMode(false)}
-                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${!isNoteMode ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}
-                      >
-                        Reply
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsNoteMode(true)}
-                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${isNoteMode ? "bg-amber-500 text-white" : "text-slate-500 hover:bg-slate-100"}`}
-                      >
-                        Add Note
-                      </button>
-                    </div>
-                  )}
-
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!replyText.trim()) return;
-                      if (isNoteMode) {
-                        void onSendNote(replyText.trim());
-                      } else if (detail?.status === "HUMAN_ACTIVE") {
-                        void onSendReply(e);
-                      }
-                    }}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        ref={composeInputRef}
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        placeholder={
-                          detail?.status === "ESCALATED"
-                            ? "Draft your reply…"
-                            : isNoteMode
-                            ? "Add an internal note (not sent to guest)…"
-                            : "Type your reply to the guest…"
-                        }
-                        disabled={detail?.status === "ESCALATED"}
-                        className={`flex-1 rounded-xl border px-4 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 disabled:cursor-text disabled:opacity-60 ${
-                          isNoteMode
-                            ? "border-amber-200 bg-amber-50 focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
-                            : "border-slate-200 bg-slate-50 focus:border-slate-500 focus:bg-white focus:ring-4 focus:ring-slate-200"
-                        }`}
-                      />
-                      <button
-                        type="submit"
-                        disabled={isSending || !replyText.trim() || detail?.status === "ESCALATED"}
-                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 ${
-                          isNoteMode
-                            ? "bg-amber-500 shadow-amber-500/20 hover:bg-amber-600"
-                            : "bg-slate-900 shadow-slate-900/20 hover:bg-slate-700"
-                        }`}
-                      >
-                        {isSending ? (
-                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                        ) : (
-                          <IconSend className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+            )}
+          </section>
         </div>
       </ConversationPaneErrorBoundary>
 
