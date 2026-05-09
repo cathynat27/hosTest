@@ -19,7 +19,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -197,7 +197,7 @@ function ReviewRow({
 
 // ─── Main Wizard Component ────────────────────────────────────────────────────
 
-export default function NewCampaignPage() {
+function NewCampaignPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit"); // present when editing an existing draft
@@ -1053,5 +1053,13 @@ export default function NewCampaignPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function NewCampaignPage() {
+  return (
+    <Suspense>
+      <NewCampaignPageInner />
+    </Suspense>
   );
 }
