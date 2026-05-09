@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getCampaigns } from "@/lib/api";
+import { deleteCampaign, getCampaigns } from "@/lib/api";
 import { getCurrentUser, getToken } from "@/lib/auth";
 import type { Campaign, CampaignStatus, CampaignType } from "@/types";
 
@@ -71,6 +71,30 @@ function IconPlus({ className }: { className?: string }) {
   );
 }
 
+function IconPencil({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+    </svg>
+  );
+}
+
+function IconTrash({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+    </svg>
+  );
+}
+
+function IconAlertTriangle({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 /** Loading placeholder card that matches the CampaignCard layout. */
@@ -113,57 +137,96 @@ function Stat({
   );
 }
 
-/** Clickable campaign card that links to the campaign's delivery report. */
-function CampaignCard({ campaign }: { campaign: Campaign }) {
+/**
+ * Statuses where deleting is safe — never allow delete while a send is in-flight.
+ */
+const DELETABLE_STATUSES: CampaignStatus[] = [
+  "draft", "scheduled", "completed", "cancelled", "failed",
+];
+
+/**
+ * Campaign card. The main body is a Link to the detail/report page.
+ * An action row below exposes Edit (drafts only) and Delete (all except processing).
+ */
+function CampaignCard({
+  campaign,
+  onDelete,
+}: {
+  campaign: Campaign;
+  onDelete: (c: Campaign) => void;
+}) {
   const hasSentData = campaign.status !== "draft";
+  const canDelete = DELETABLE_STATUSES.includes(campaign.status);
+  const canEdit = campaign.status === "draft";
 
   return (
-    <Link
-      href={`/dashboard/campaigns/${campaign.id}`}
-      className="glass-card block rounded-2xl p-5 transition hover:shadow-lg"
-    >
-      {/* Name + status */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-900">{campaign.name}</p>
-          <p className="mt-0.5 text-xs text-slate-500">{TYPE_LABELS[campaign.campaign_type]}</p>
+    <div className="glass-card overflow-hidden rounded-2xl">
+      {/* Clickable body → detail / report page */}
+      <Link
+        href={`/dashboard/campaigns/${campaign.id}`}
+        className="block p-5 transition hover:bg-slate-50/60"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-slate-900">{campaign.name}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{TYPE_LABELS[campaign.campaign_type]}</p>
+          </div>
+          <span
+            className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${STATUS_STYLES[campaign.status]}`}
+          >
+            {campaign.status}
+          </span>
         </div>
-        <span
-          className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${STATUS_STYLES[campaign.status]}`}
-        >
-          {campaign.status}
-        </span>
-      </div>
 
-      {/* Delivery stats — only meaningful after the campaign has started sending */}
-      {hasSentData && (
-        <div className="mt-4 flex flex-wrap gap-5 border-t border-slate-100 pt-3">
-          <Stat label="Targeted" value={campaign.recipient_count_targeted} />
-          <Stat
-            label="Sent"
-            value={campaign.recipient_count_sent}
-            accent="text-blue-600"
-          />
-          <Stat
-            label="Skipped"
-            value={campaign.recipient_count_skipped}
-            accent={campaign.recipient_count_skipped > 0 ? "text-amber-600" : undefined}
-          />
+        {hasSentData && (
+          <div className="mt-4 flex flex-wrap gap-5 border-t border-slate-100 pt-3">
+            <Stat label="Targeted" value={campaign.recipient_count_targeted} />
+            <Stat label="Sent" value={campaign.recipient_count_sent} accent="text-blue-600" />
+            <Stat
+              label="Skipped"
+              value={campaign.recipient_count_skipped}
+              accent={campaign.recipient_count_skipped > 0 ? "text-amber-600" : undefined}
+            />
+          </div>
+        )}
+
+        {campaign.scheduled_at && campaign.status === "scheduled" && (
+          <p className="mt-3 text-[11px] text-slate-400">
+            Scheduled for {new Date(campaign.scheduled_at).toLocaleString()}
+          </p>
+        )}
+        {campaign.completed_at && (
+          <p className="mt-3 text-[11px] text-slate-400">
+            Completed {new Date(campaign.completed_at).toLocaleString()}
+          </p>
+        )}
+      </Link>
+
+      {/* Action row — rendered only when at least one action is available */}
+      {(canEdit || canDelete) && (
+        <div className="flex items-center justify-end gap-1 border-t border-slate-100 px-3 py-2">
+          {canEdit && (
+            <Link
+              href={`/dashboard/campaigns/new?edit=${campaign.id}`}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            >
+              <IconPencil className="h-3.5 w-3.5" />
+              Edit
+            </Link>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(campaign)}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            >
+              <IconTrash className="h-3.5 w-3.5" />
+              Delete
+            </button>
+          )}
         </div>
       )}
-
-      {/* Timing context */}
-      {campaign.scheduled_at && campaign.status === "scheduled" && (
-        <p className="mt-3 text-[11px] text-slate-400">
-          Scheduled for {new Date(campaign.scheduled_at).toLocaleString()}
-        </p>
-      )}
-      {campaign.completed_at && (
-        <p className="mt-3 text-[11px] text-slate-400">
-          Completed {new Date(campaign.completed_at).toLocaleString()}
-        </p>
-      )}
-    </Link>
+    </div>
   );
 }
 
@@ -175,6 +238,8 @@ export default function CampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   /* Admin-only guard — campaign creation is a privileged action. */
   useEffect(() => {
@@ -196,6 +261,22 @@ export default function CampaignsPage() {
       }
     })();
   }, []);
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteCampaign(deleteTarget.id);
+      setCampaigns((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete campaign");
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const filtered =
     statusFilter === "all"
@@ -288,11 +369,49 @@ export default function CampaignsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((campaign) => (
-              <CampaignCard key={campaign.id} campaign={campaign} />
+              <CampaignCard
+                key={campaign.id}
+                campaign={campaign}
+                onDelete={setDeleteTarget}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Delete confirmation modal ────────────────────────────────────────── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <div className="glass-card animate-scale-in mx-4 max-w-sm rounded-3xl p-6 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
+              <IconAlertTriangle className="h-6 w-6 text-red-500" />
+            </div>
+            <h3 className="mt-4 text-base font-bold text-slate-900">Delete campaign?</h3>
+            <p className="mt-2 text-sm text-slate-500">
+              <span className="font-semibold text-slate-800">{deleteTarget.name}</span> will be
+              permanently removed. This cannot be undone.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

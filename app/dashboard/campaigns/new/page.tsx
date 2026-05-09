@@ -18,11 +18,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   createCampaign,
   getAudiencePreview,
+  getCampaignById,
   getTemplates,
   launchCampaign,
   updateCampaign,
@@ -32,9 +33,7 @@ import type {
   AudienceFilters,
   AudiencePreview,
   CampaignType,
-  LaunchCampaignRequest,
   Template,
-  UpdateCampaignRequest,
 } from "@/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -198,6 +197,8 @@ function ReviewRow({
 
 export default function NewCampaignPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit"); // present when editing an existing draft
 
   /* Admin-only guard */
   useEffect(() => {
@@ -214,6 +215,21 @@ export default function NewCampaignPage() {
   /** Set once the backend draft record is created at the end of Stage 1. */
   const [campaignId, setCampaignId] = useState<string | null>(null);
 
+  /* When editing an existing draft, load it and pre-fill every field. */
+  useEffect(() => {
+    if (!editId) return;
+    getCampaignById(editId).then((c) => {
+      setCampaignId(c.id);
+      setName(c.name);
+      setCampaignType(c.campaign_type);
+      setFilters(c.audience_filters);
+      setSelectedTemplateId(c.template_id ?? "");
+      setVariableOverrides(c.variable_overrides);
+      setSendImmediately(c.scheduled_at === null);
+      setScheduledAt(c.scheduled_at ?? "");
+    }).catch(() => { /* non-fatal: wizard still usable without pre-fill */ });
+  }, [editId]);
+
   // ── Stage 2: Audience ─────────────────────────────────────────────────────
   const [filters, setFilters] = useState<AudienceFilters>({});
   const [audiencePreview, setAudiencePreview] = useState<AudiencePreview | null>(null);
@@ -228,9 +244,8 @@ export default function NewCampaignPage() {
   // ── Stage 4: Schedule ─────────────────────────────────────────────────────
   const [sendImmediately, setSendImmediately] = useState(true);
   const [scheduledAt, setScheduledAt] = useState("");
-  const [minScheduleTime, setMinScheduleTime] = useState(() =>
-    new Date(Date.now() + 5 * 60_000).toISOString().slice(0, 16)
-  );
+  /* Earliest selectable datetime — 5 minutes from when the wizard was opened. */
+  const minScheduleTime = new Date(Date.now() + 5 * 60_000).toISOString().slice(0, 16);
 
   // ── Shared ────────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
@@ -413,7 +428,9 @@ export default function NewCampaignPage() {
           Campaigns
         </Link>
         <span className="text-slate-300">·</span>
-        <span className="text-xs font-semibold text-slate-800">New Campaign</span>
+        <span className="text-xs font-semibold text-slate-800">
+          {editId ? "Edit Draft" : "New Campaign"}
+        </span>
       </div>
 
       {/* ── Scrollable wizard body ───────────────────────────────────────────── */}
