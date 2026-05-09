@@ -561,6 +561,10 @@ export async function cancelCampaign(id: string): Promise<{ status: string }> {
   });
 }
 
+export async function deleteCampaign(id: string): Promise<void> {
+  return apiRequest<void>(`/api/campaigns/${id}`, { method: "DELETE" });
+}
+
 export async function getTemplates(campaignType?: CampaignType): Promise<Template[]> {
   const path = campaignType
     ? `/api/templates?campaign_type=${encodeURIComponent(campaignType)}`

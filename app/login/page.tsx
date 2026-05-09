@@ -161,7 +161,7 @@ function LoginForm() {
           </button>
         </form>
 
-        <div className="mt-6 space-y-1 text-center text-xs text-slate-600">
+        {/* <div className="mt-6 space-y-1 text-center text-xs text-slate-600">
           <p>
             Need access?{" "}
             <Link href="/signup/invite" className="font-semibold text-slate-900 hover:text-slate-700">
@@ -174,7 +174,7 @@ function LoginForm() {
               Start onboarding
             </Link>
           </p>
-        </div>
+        </div> */}
       </div>
     </main>
   );

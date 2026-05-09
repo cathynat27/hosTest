@@ -13,10 +13,12 @@
  */
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { cancelCampaign, getCampaignById } from "@/lib/api";
+import { cancelCampaign, deleteCampaign, getCampaignById } from "@/lib/api";
 import { getCurrentUser, getToken } from "@/lib/auth";
 import type {
   CampaignDetail,
@@ -131,6 +133,7 @@ export default function CampaignDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [msgFilter, setMsgFilter] = useState<MessageFilter>("all");
   const [cancelling, setCancelling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   /* Admin-only guard */
   useEffect(() => {
@@ -170,6 +173,19 @@ export default function CampaignDetailPage() {
       setError(err instanceof Error ? err.message : "Failed to cancel campaign");
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!campaign) return;
+    if (!window.confirm(`Delete "${campaign.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await deleteCampaign(campaign.id);
+      router.replace("/dashboard/campaigns");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete campaign");
+      setDeleting(false);
     }
   }
 
@@ -230,17 +246,41 @@ export default function CampaignDetailPage() {
           </span>
         </div>
 
-        {/* Cancel is only meaningful for campaigns waiting to be sent. */}
-        {campaign.status === "scheduled" && (
-          <button
-            type="button"
-            onClick={handleCancel}
-            disabled={cancelling}
-            className="flex-shrink-0 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
-          >
-            {cancelling ? "Cancelling…" : "Cancel Campaign"}
-          </button>
-        )}
+        <div className="flex flex-shrink-0 items-center gap-2">
+          {/* Edit — only drafts can still be modified */}
+          {campaign.status === "draft" && (
+            <Link
+              href={`/dashboard/campaigns/new?edit=${campaign.id}`}
+              className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+            >
+              Edit Draft
+            </Link>
+          )}
+
+          {/* Cancel — only meaningful for campaigns waiting to be sent */}
+          {campaign.status === "scheduled" && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+            >
+              {cancelling ? "Cancelling…" : "Cancel Campaign"}
+            </button>
+          )}
+
+          {/* Delete — available for any status except while actively sending */}
+          {campaign.status !== "processing" && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Error banner for cancel failures */}
