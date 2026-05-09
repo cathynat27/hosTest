@@ -269,8 +269,8 @@ export default function CampaignDetailPage() {
             </button>
           )}
 
-          {/* Delete — available for any status except while actively sending */}
-          {campaign.status !== "processing" && (
+          {/* Delete — only drafts and cancelled campaigns can be deleted */}
+          {(campaign.status === "draft" || campaign.status === "cancelled") && (
             <button
               type="button"
               onClick={handleDelete}

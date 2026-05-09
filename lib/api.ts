@@ -181,6 +181,10 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
     throw new ApiError(message, response.status);
   }
 
+  if (response.status === 204) {
+    return null as T;
+  }
+
   if (!isJson) {
     throw new Error("Server response format is invalid. Expected JSON.");
   }
@@ -562,7 +566,7 @@ export async function cancelCampaign(id: string): Promise<{ status: string }> {
 }
 
 export async function deleteCampaign(id: string): Promise<void> {
-  return apiRequest<void>(`/api/campaigns/${id}`, { method: "DELETE" });
+  await apiRequest<unknown>(`/api/campaigns/${id}`, { method: "DELETE" });
 }
 
 export async function getTemplates(campaignType?: CampaignType): Promise<Template[]> {
