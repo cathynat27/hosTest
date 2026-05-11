@@ -70,8 +70,6 @@ function relativeTime(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-// ─── Empty form state ─────────────────────────────────────────────────────────
-
 function emptyForm(): CreateAutomationRequest {
   return {
     name: "",
@@ -85,7 +83,7 @@ function emptyForm(): CreateAutomationRequest {
   };
 }
 
-// ─── Rule form modal ─────────────────────────────────────────────────────────
+// ─── Rule form modal ──────────────────────────────────────────────────────────
 
 type RuleFormProps = {
   initial: CreateAutomationRequest;
@@ -107,14 +105,24 @@ function RuleFormModal({ initial, onSave, onClose, saving, error }: RuleFormProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="glass-card animate-scale-in w-full max-w-lg rounded-2xl p-6">
-        <h3 className="text-base font-bold text-slate-900">
-          {initial.name ? "Edit Rule" : "New Automation Rule"}
-        </h3>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4 backdrop-blur-sm">
+      <div className="glass-card animate-scale-in w-full max-w-lg rounded-t-3xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-900">
+            {initial.name ? "Edit Rule" : "New Automation Rule"}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          {/* Name */}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="rule-name" className="ui-label">Rule Name</label>
             <input
@@ -127,7 +135,6 @@ function RuleFormModal({ initial, onSave, onClose, saving, error }: RuleFormProp
             />
           </div>
 
-          {/* Trigger type */}
           <div>
             <label htmlFor="trigger-type" className="ui-label">Trigger Type</label>
             <select
@@ -142,7 +149,6 @@ function RuleFormModal({ initial, onSave, onClose, saving, error }: RuleFormProp
             </select>
           </div>
 
-          {/* Keyword value (only when keyword trigger) */}
           {form.trigger_type === "keyword" && (
             <div>
               <label htmlFor="trigger-value" className="ui-label">Keyword(s)</label>
@@ -160,7 +166,6 @@ function RuleFormModal({ initial, onSave, onClose, saving, error }: RuleFormProp
             </div>
           )}
 
-          {/* Response message */}
           <div>
             <label htmlFor="response-msg" className="ui-label">Response Message</label>
             <textarea
@@ -174,7 +179,6 @@ function RuleFormModal({ initial, onSave, onClose, saving, error }: RuleFormProp
             />
           </div>
 
-          {/* Delay */}
           <div>
             <label htmlFor="delay" className="ui-label">Send Delay (seconds)</label>
             <input
@@ -187,9 +191,10 @@ function RuleFormModal({ initial, onSave, onClose, saving, error }: RuleFormProp
             />
           </div>
 
-          {/* Follow-up message */}
           <div>
-            <label htmlFor="followup-msg" className="ui-label">Follow-up Message <span className="font-normal text-slate-400">(optional)</span></label>
+            <label htmlFor="followup-msg" className="ui-label">
+              Follow-up Message <span className="font-normal text-slate-400">(optional)</span>
+            </label>
             <textarea
               id="followup-msg"
               rows={3}
@@ -251,11 +256,7 @@ export default function AutomationsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!getToken()) { router.replace("/login"); return; }
-    if (getCurrentUser()?.role !== "ADMIN") { router.replace("/dashboard"); return; }
-    loadRules();
-  }, []);
+
 
   const loadRules = () => {
     setLoading(true);
@@ -325,10 +326,28 @@ export default function AutomationsPage() {
     }
   };
 
+  useEffect(() => {
+    if (!getToken()) {
+      router.replace("/login");
+      return;
+    }
+
+    if (getCurrentUser()?.role !== "ADMIN") {
+      router.replace("/dashboard");
+      return;
+    }
+
+    queueMicrotask(() => {
+      void loadRules();
+    });
+  }, []);
+
   return (
     <main className="flex h-full flex-col overflow-hidden bg-slate-50/50 p-3 sm:p-4">
-      {/* Header */}
-      <header className="glass-card mb-3 flex flex-shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-2.5 sm:h-12">
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header className="glass-card mb-3 flex flex-shrink-0 flex-col gap-2 rounded-2xl px-4 py-3 sm:h-12 sm:flex-row sm:items-center sm:gap-3 sm:py-2.5">
+        {/* Left: title + badges */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold tracking-tight text-slate-900">Automations</span>
           <span className="rounded-full bg-blue-600/10 px-2 py-px text-[10px] font-semibold text-blue-700">
@@ -336,17 +355,19 @@ export default function AutomationsPage() {
           </span>
           {!loading && (
             <span className="rounded-full bg-slate-100 px-2 py-px text-[10px] font-semibold text-slate-600">
-              {rules.length} rules
+              {rules.length} {rules.length === 1 ? "rule" : "rules"}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Right: actions — full width row on mobile, auto on desktop */}
+        <div className="flex items-center gap-2 sm:ml-auto mt-2">
           {rules.length === 0 && !loading && (
             <button
               type="button"
               onClick={() => void handleSeedDefaults()}
               disabled={saving}
-              className="btn-secondary px-3 py-1.5 text-xs"
+              className="btn-secondary flex-1 sm:flex-none px-3 py-2 text-xs"
             >
               Load Defaults
             </button>
@@ -354,14 +375,14 @@ export default function AutomationsPage() {
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="btn-primary px-3 py-1.5 text-xs"
+            className="btn-primary flex-1 sm:flex-none px-3 py-2 text-xs"
           >
             + New Rule
           </button>
         </div>
       </header>
 
-      {/* Content */}
+      {/* ── Content ─────────────────────────────────────────────────────────── */}
       <div className="light-scroll min-h-0 flex-1 overflow-y-auto">
         {error && (
           <div className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
@@ -415,7 +436,8 @@ export default function AutomationsPage() {
               >
                 {/* ── Mobile card layout ────────────────────────────────────── */}
                 <div className="md:hidden px-4 py-3.5">
-                  <div className="flex items-start justify-between gap-3">
+                  {/* Row 1: name + toggle */}
+                  <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-slate-900">{rule.name}</p>
                       {rule.trigger_value && (
@@ -424,24 +446,25 @@ export default function AutomationsPage() {
                         </p>
                       )}
                     </div>
+                    {/* Toggle */}
                     <button
                       type="button"
                       onClick={() => void handleToggle(rule.id)}
                       disabled={togglingId === rule.id}
-                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                        rule.is_active ? "bg-emerald-500" : "bg-slate-200"
-                      }`}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${rule.is_active ? "bg-emerald-500" : "bg-slate-200"
+                        }`}
                       role="switch"
                       aria-checked={rule.is_active}
                       aria-label={`Toggle ${rule.name}`}
                     >
                       <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                          rule.is_active ? "translate-x-4" : "translate-x-0"
-                        }`}
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${rule.is_active ? "translate-x-4" : "translate-x-0"
+                          }`}
                       />
                     </button>
                   </div>
+
+                  {/* Row 2: trigger badge + time + actions */}
                   <div className="mt-2.5 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${TRIGGER_COLORS[rule.trigger_type]}`}>
@@ -505,17 +528,15 @@ export default function AutomationsPage() {
                     type="button"
                     onClick={() => void handleToggle(rule.id)}
                     disabled={togglingId === rule.id}
-                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                      rule.is_active ? "bg-emerald-500" : "bg-slate-200"
-                    }`}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${rule.is_active ? "bg-emerald-500" : "bg-slate-200"
+                      }`}
                     role="switch"
                     aria-checked={rule.is_active}
                     aria-label={`Toggle ${rule.name}`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                        rule.is_active ? "translate-x-4" : "translate-x-0"
-                      }`}
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${rule.is_active ? "translate-x-4" : "translate-x-0"
+                        }`}
                     />
                   </button>
                   <span className="whitespace-nowrap text-[11px] text-slate-400">

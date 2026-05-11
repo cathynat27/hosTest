@@ -28,7 +28,7 @@ export default function HoscoverLogo({
       </div>
       <div className={textClassName}>
         <p className="text-lg font-bold tracking-tight text-slate-900">hoscover</p>
-        <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Guest operations cloud</p>
+        <p className="text-[10px] uppercase tracking-[0.08em] text-slate-500 whitespace-nowrap">Guest operations cloud</p>
       </div>
     </div>
   );

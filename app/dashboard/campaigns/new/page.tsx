@@ -40,11 +40,6 @@ import type {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/**
- * Campaign type selector options.
- * Descriptions frame each type as a revenue outcome to reinforce the product
- * principle that every campaign must attach to a revenue event.
- */
 const CAMPAIGN_TYPES: {
   value: CampaignType;
   label: string;
@@ -93,7 +88,7 @@ const STAGES = [
 
 type WizardStage = 1 | 2 | 3 | 4 | 5;
 
-// ─── Icons 
+// ─── Icons ────────────────────────────────────────────────────────────────────
 
 function IconArrowLeft({ className }: { className?: string }) {
   return (
@@ -129,30 +124,25 @@ function IconSend({ className }: { className?: string }) {
 
 // ─── Stage Progress Indicator ─────────────────────────────────────────────────
 
-/**
- * Horizontal step progress bar shown at the top of the wizard.
- * Completed stages show a check mark and a green connector line.
- * The current stage gets a ring highlight. Future stages are muted.
- */
 function StageProgress({ current }: { current: WizardStage }) {
   return (
     <div className="mb-8 flex items-center justify-center gap-0">
       {STAGES.map((s, i) => (
         <div key={s.n} className="flex items-center">
           {/* Step circle + label */}
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1">
             <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${s.n < current
+              className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-[10px] sm:text-xs font-bold transition-all ${s.n < current
                 ? "bg-emerald-500 text-white"
                 : s.n === current
                   ? "bg-slate-900 text-white ring-4 ring-slate-900/10"
                   : "bg-slate-100 text-slate-400"
                 }`}
             >
-              {s.n < current ? <IconCheck className="h-4 w-4" /> : s.n}
+              {s.n < current ? <IconCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : s.n}
             </div>
             <span
-              className={`text-[10px] font-semibold ${s.n === current ? "text-slate-900" : "text-slate-400"
+              className={`text-[9px] sm:text-[10px] font-semibold ${s.n === current ? "text-slate-900" : "text-slate-400"
                 }`}
             >
               {s.label}
@@ -162,7 +152,7 @@ function StageProgress({ current }: { current: WizardStage }) {
           {/* Connector line between steps */}
           {i < STAGES.length - 1 && (
             <div
-              className={`mx-2 mb-5 h-px w-10 transition-all sm:w-16 ${s.n < current ? "bg-emerald-400" : "bg-slate-200"
+              className={`mx-1 sm:mx-2 mb-5 h-px w-6 sm:w-16 transition-all ${s.n < current ? "bg-emerald-400" : "bg-slate-200"
                 }`}
             />
           )}
@@ -200,7 +190,7 @@ function ReviewRow({
 function NewCampaignPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const editId = searchParams.get("edit"); // present when editing an existing draft
+  const editId = searchParams.get("edit");
 
   /* Admin-only guard */
   useEffect(() => {
@@ -214,23 +204,9 @@ function NewCampaignPageInner() {
   // ── Stage 1: Create ───────────────────────────────────────────────────────
   const [name, setName] = useState("");
   const [campaignType, setCampaignType] = useState<CampaignType | "">("");
-  /** Set once the backend draft record is created at the end of Stage 1. */
   const [campaignId, setCampaignId] = useState<string | null>(null);
 
-  /* When editing an existing draft, load it and pre-fill every field. */
-  useEffect(() => {
-    if (!editId) return;
-    getCampaignById(editId).then((c) => {
-      setCampaignId(c.id);
-      setName(c.name);
-      setCampaignType(c.campaign_type);
-      setFilters(c.audience_filters);
-      setSelectedTemplateId(c.template_id ?? "");
-      setVariableOverrides(c.variable_overrides);
-      setSendImmediately(c.scheduled_at === null);
-      setScheduledAt(c.scheduled_at ?? "");
-    }).catch(() => { /* non-fatal: wizard still usable without pre-fill */ });
-  }, [editId]);
+
 
   // ── Stage 2: Audience ─────────────────────────────────────────────────────
   const [filters, setFilters] = useState<AudienceFilters>({});
@@ -246,8 +222,9 @@ function NewCampaignPageInner() {
   // ── Stage 4: Schedule ─────────────────────────────────────────────────────
   const [sendImmediately, setSendImmediately] = useState(true);
   const [scheduledAt, setScheduledAt] = useState("");
-  /* Earliest selectable datetime — 5 minutes from when the wizard was opened. */
-  const minScheduleTime = new Date(Date.now() + 5 * 60_000).toISOString().slice(0, 16);
+  const [minScheduleTime] = useState(
+    () => new Date(Date.now() + 5 * 60_000).toISOString().slice(0, 16)
+  );
 
   // ── Shared ────────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
@@ -259,24 +236,32 @@ function NewCampaignPageInner() {
   const canAdvanceStage3 = selectedTemplateId !== "";
   const canAdvanceStage4 = sendImmediately || scheduledAt !== "";
 
-  /**
-   * Re-fetches the audience preview count from the backend.
-   * Called on blur of each filter input so counts update as the user builds
-   * the segment rather than waiting until they click Continue.
-   */
   const refreshAudiencePreview = useCallback(async () => {
     setPreviewLoading(true);
     try {
       const preview = await getAudiencePreview(filters);
       setAudiencePreview(preview);
     } catch {
-      /* Non-fatal: preview count is informational, not blocking. */
+      /* Non-fatal */
     } finally {
       setPreviewLoading(false);
     }
   }, [filters]);
+  //existing campaign
+  useEffect(() => {
+    if (!editId) return;
+    getCampaignById(editId).then((c) => {
+      setCampaignId(c.id);
+      setName(c.name);
+      setCampaignType(c.campaign_type);
+      setFilters(c.audience_filters);
+      setSelectedTemplateId(c.template_id ?? "");
+      setVariableOverrides(c.variable_overrides);
+      setSendImmediately(c.scheduled_at === null);
+      setScheduledAt(c.scheduled_at ?? "");
+    }).catch(() => { });
+  }, [editId]);
 
-  /* Load templates whenever the user enters Stage 3. */
   useEffect(() => {
     if (stage !== 3 || !campaignType) return;
 
@@ -296,23 +281,13 @@ function NewCampaignPageInner() {
   // ── Stage advance handlers ────────────────────────────────────────────────
 
   async function advanceFromStage1() {
-    // Validate campaign name
-    if (!name.trim()) {
-      setError("Campaign name is required");
-      return;
-    }
-
-    // Validate campaign type
-    if (!campaignType) {
-      setError("Campaign type is required");
-      return;
-    }
+    if (!name.trim()) { setError("Campaign name is required"); return; }
+    if (!campaignType) { setError("Campaign type is required"); return; }
 
     setSaving(true);
     setError(null);
     try {
       if (campaignId) {
-        /* User went Back and returned — update the existing draft instead of creating a new one. */
         await updateCampaign(campaignId, {
           name: name.trim(),
           campaign_type: campaignType as CampaignType,
@@ -325,7 +300,6 @@ function NewCampaignPageInner() {
         setCampaignId(campaign.id);
       }
       setStage(2);
-      /* Fetch initial audience size with no filters applied. */
       setPreviewLoading(true);
       getAudiencePreview({})
         .then(setAudiencePreview)
@@ -385,7 +359,6 @@ function NewCampaignPageInner() {
     }
   }
 
-  /** Final launch — called from the confirmation modal. Cannot be undone. */
   async function handleLaunch() {
     if (!campaignId) return;
     setSaving(true);
@@ -439,7 +412,7 @@ function NewCampaignPageInner() {
       <div className="light-scroll min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <StageProgress current={stage} />
 
-        {/* Error banner — shown for API failures on any stage transition. */}
+        {/* Error banner */}
         {error && (
           <div className="mx-auto mb-6 max-w-xl rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
             {error}
@@ -455,7 +428,7 @@ function NewCampaignPageInner() {
               The campaign type determines which Meta-approved templates are available.
             </p>
 
-            <label className="ui-label">Campaign Name </label>
+            <label className="ui-label">Campaign Name</label>
             <input
               className="ui-input mb-6"
               placeholder="e.g. Weekend Spa Offer — May 2026"
@@ -505,7 +478,6 @@ function NewCampaignPageInner() {
               always enforced automatically — you cannot override it.
             </p>
 
-            {/* Live opted-in count — the key compliance signal for staff. */}
             <div className="mb-6 rounded-xl bg-slate-900 px-4 py-3 text-white">
               {previewLoading ? (
                 <p className="text-sm font-medium opacity-70">Calculating audience…</p>
@@ -532,7 +504,6 @@ function NewCampaignPageInner() {
               )}
             </div>
 
-            {/* Segment filters */}
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -620,7 +591,6 @@ function NewCampaignPageInner() {
                 </div>
               </div>
 
-              {/* Repeat guest toggle */}
               <label className="flex cursor-pointer items-center gap-3">
                 <input
                   type="checkbox"
@@ -628,7 +598,6 @@ function NewCampaignPageInner() {
                   checked={!!filters.repeat_guest}
                   onChange={() => {
                     setFilters((f) => ({ ...f, repeat_guest: f.repeat_guest ? undefined : true }));
-                    /* Debounce via setTimeout so filter state is updated before the preview call. */
                     setTimeout(refreshAudiencePreview, 0);
                   }}
                 />
@@ -659,10 +628,9 @@ function NewCampaignPageInner() {
             <h2 className="mb-1 text-lg font-bold text-slate-900">Choose a template</h2>
             <p className="mb-6 text-sm text-slate-500">
               Only templates matching your campaign type are
-              shown to prevent transactional templates being used for promotional sends .
+              shown to prevent transactional templates being used for promotional sends.
             </p>
 
-            {/* Template cards */}
             {templatesLoading ? (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -690,7 +658,6 @@ function NewCampaignPageInner() {
                       disabled={!isApproved}
                       onClick={() => {
                         setSelectedTemplateId(t.id);
-                        /* Reset variable overrides when switching template to avoid stale mappings. */
                         setVariableOverrides({});
                       }}
                       className={`rounded-2xl border-2 p-4 text-left transition ${!isApproved
@@ -700,12 +667,8 @@ function NewCampaignPageInner() {
                           : "border-slate-200 bg-white hover:border-slate-400"
                         }`}
                     >
-                      {/* Template header */}
                       <div className="flex items-start justify-between gap-2">
-                        <p
-                          className={`text-sm font-semibold ${isSelected ? "text-white" : "text-slate-900"
-                            }`}
-                        >
+                        <p className={`text-sm font-semibold ${isSelected ? "text-white" : "text-slate-900"}`}>
                           {t.meta_template_name}
                         </p>
                         <span
@@ -720,21 +683,13 @@ function NewCampaignPageInner() {
                         </span>
                       </div>
 
-                      {/* Body preview — truncated to keep cards compact */}
-                      <p
-                        className={`mt-2 text-xs leading-relaxed ${isSelected ? "text-slate-300" : "text-slate-500"
-                          }`}
-                      >
+                      <p className={`mt-2 text-xs leading-relaxed ${isSelected ? "text-slate-300" : "text-slate-500"}`}>
                         {t.body_text.slice(0, 120)}
                         {t.body_text.length > 120 ? "…" : ""}
                       </p>
 
-                      {/* Variable list */}
                       {t.variable_definitions.length > 0 && (
-                        <p
-                          className={`mt-2 text-[11px] ${isSelected ? "text-slate-400" : "text-slate-400"
-                            }`}
-                        >
+                        <p className={`mt-2 text-[11px] ${isSelected ? "text-slate-400" : "text-slate-400"}`}>
                           Variables:{" "}
                           {t.variable_definitions.map((v) => `{{${v.key}}}`).join(", ")}
                         </p>
@@ -745,7 +700,6 @@ function NewCampaignPageInner() {
               </div>
             )}
 
-            {/* Variable mapping — only shown when a template with variables is selected. */}
             {selectedTemplate && selectedTemplate.variable_definitions.length > 0 && (
               <div className="mt-6">
                 <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -794,7 +748,6 @@ function NewCampaignPageInner() {
             </p>
 
             <div className="space-y-3">
-              {/* Send immediately */}
               <label
                 className={`flex cursor-pointer items-center gap-4 rounded-xl border-2 p-4 transition ${sendImmediately
                   ? "border-slate-900 bg-slate-900"
@@ -816,21 +769,15 @@ function NewCampaignPageInner() {
                   )}
                 </div>
                 <div>
-                  <p
-                    className={`text-sm font-semibold ${sendImmediately ? "text-white" : "text-slate-900"
-                      }`}
-                  >
+                  <p className={`text-sm font-semibold ${sendImmediately ? "text-white" : "text-slate-900"}`}>
                     Send Immediately
                   </p>
-                  <p
-                    className={`text-xs ${sendImmediately ? "text-slate-300" : "text-slate-400"}`}
-                  >
+                  <p className={`text-xs ${sendImmediately ? "text-slate-300" : "text-slate-400"}`}>
                     Campaign is queued for delivery within 60 seconds of launch
                   </p>
                 </div>
               </label>
 
-              {/* Schedule for a future time */}
               <label
                 className={`flex cursor-pointer flex-col gap-3 rounded-xl border-2 p-4 transition ${!sendImmediately ? "border-slate-900 bg-white" : "border-slate-200 bg-white"
                   }`}
@@ -865,7 +812,6 @@ function NewCampaignPageInner() {
                     type="datetime-local"
                     className="ui-input"
                     value={scheduledAt}
-                    /* Prevent scheduling in the past or within the next 5 minutes. */
                     min={minScheduleTime}
                     onChange={(e) => setScheduledAt(e.target.value)}
                   />
@@ -883,14 +829,11 @@ function NewCampaignPageInner() {
               Check every detail before launching. Once confirmed, the campaign cannot be edited.
             </p>
 
-            {/* Summary table */}
             <div className="glass-card divide-y divide-slate-100 overflow-hidden rounded-2xl">
               <ReviewRow label="Campaign" value={name} />
               <ReviewRow
                 label="Type"
-                value={
-                  CAMPAIGN_TYPES.find((c) => c.value === campaignType)?.label ?? ""
-                }
+                value={CAMPAIGN_TYPES.find((c) => c.value === campaignType)?.label ?? ""}
               />
               <ReviewRow
                 label="Eligible Recipients"
@@ -903,10 +846,7 @@ function NewCampaignPageInner() {
                   audiencePreview?.opted_in_count === 0 ? "text-red-600" : "text-emerald-700"
                 }
               />
-              <ReviewRow
-                label="Template"
-                value={selectedTemplate?.meta_template_name ?? "—"}
-              />
+              <ReviewRow label="Template" value={selectedTemplate?.meta_template_name ?? "—"} />
               <ReviewRow
                 label="Send Time"
                 value={
@@ -919,7 +859,6 @@ function NewCampaignPageInner() {
               />
             </div>
 
-            {/* Live message preview with variable substitution example. */}
             {selectedTemplate && (
               <div className="mt-4">
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
@@ -928,27 +867,11 @@ function NewCampaignPageInner() {
                 <div className="rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-100">
                   <p className="text-sm leading-relaxed text-slate-700">
                     {selectedTemplate.body_text
-                      .replace(
-                        /\{\{guest_name\}\}/g,
-                        variableOverrides["guest_name"] ?? "James"
-                      )
-                      .replace(
-                        /\{\{room_type\}\}/g,
-                        variableOverrides["room_type"] ?? "Deluxe Suite"
-                      )
-                      .replace(
-                        /\{\{offer_amount\}\}/g,
-                        variableOverrides["offer_amount"] ?? "20%"
-                      )
-                      .replace(
-                        /\{\{checkout_date\}\}/g,
-                        variableOverrides["checkout_date"] ?? "tomorrow"
-                      )
-                      /* Catch-all for any remaining unresolved variables. */
-                      .replace(
-                        /\{\{([^}]+)\}\}/g,
-                        (_, key) => variableOverrides[key] ?? `[${key}]`
-                      )}
+                      .replace(/\{\{guest_name\}\}/g, variableOverrides["guest_name"] ?? "James")
+                      .replace(/\{\{room_type\}\}/g, variableOverrides["room_type"] ?? "Deluxe Suite")
+                      .replace(/\{\{offer_amount\}\}/g, variableOverrides["offer_amount"] ?? "20%")
+                      .replace(/\{\{checkout_date\}\}/g, variableOverrides["checkout_date"] ?? "tomorrow")
+                      .replace(/\{\{([^}]+)\}\}/g, (_, key) => variableOverrides[key] ?? `[${key}]`)}
                   </p>
                 </div>
               </div>
@@ -965,7 +888,6 @@ function NewCampaignPageInner() {
 
         {/* ── Navigation buttons ─────────────────────────────────────────────── */}
         <div className="mx-auto mt-8 flex max-w-xl items-center justify-between gap-3">
-          {/* Back button — always show except on Stage 1. */}
           {stage > 1 ? (
             <button
               type="button"
@@ -977,7 +899,6 @@ function NewCampaignPageInner() {
               Back
             </button>
           ) : (
-            /* Spacer so Continue is right-aligned on Stage 1. */
             <div />
           )}
 
@@ -1006,14 +927,9 @@ function NewCampaignPageInner() {
       </div>
 
       {/* ── Confirmation modal ───────────────────────────────────────────────── */}
-      {/*
-       * Two-step confirmation prevents accidental launches.
-       * The spec requires: "You are about to send [X] messages. This cannot be undone. Confirm?"
-       */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <div className="glass-card animate-scale-in mx-4 max-w-sm rounded-3xl p-6 text-center">
-            {/* Icon */}
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100">
               <IconSend className="h-6 w-6 text-emerald-600" />
             </div>

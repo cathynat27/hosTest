@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { disconnectSocket, getSocket } from "@/lib/socket";
@@ -55,7 +55,6 @@ function IconTeam({ className }: { className?: string }) {
   );
 }
 
-/** Paper-airplane icon — represents outbound campaign sending. */
 function IconCampaigns({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
@@ -72,17 +71,37 @@ function IconLogout({ className }: { className?: string }) {
   );
 }
 
+function IconMenu({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+    </svg>
+  );
+}
+
+function IconX({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+// ── Desktop sidebar nav item ──────────────────────────────────────────────────
+
 type NavItemProps = {
   href: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
+  onClick?: () => void;
 };
 
-function NavItem({ href, icon, label, active }: NavItemProps) {
+function NavItem({ href, icon, label, active, onClick }: NavItemProps) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       title={label}
       className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all ${active
         ? "bg-slate-900 text-white shadow-sm shadow-slate-900/25"
@@ -98,72 +117,80 @@ function NavItem({ href, icon, label, active }: NavItemProps) {
   );
 }
 
-function BottomNavItem({ href, icon, label, active }: NavItemProps) {
+// ── Mobile drawer nav item ────────────────────────────────────────────────────
+
+function DrawerNavItem({ href, icon, label, active, onClick }: NavItemProps) {
   return (
     <Link
       href={href}
-      className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-colors ${active
-        ? "text-slate-900"
-        : "text-slate-400 active:text-slate-600"
+      onClick={onClick}
+      className={`flex items-center gap-4 rounded-2xl px-4 py-3.5 transition-all ${active
+        ? "bg-slate-900 text-white"
+        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         }`}
     >
-      <span className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors ${active ? "bg-slate-900 text-white" : ""}`}>
-        <span className="h-4 w-4">{icon}</span>
-      </span>
-      <span className="text-[10px] font-medium leading-none">{label}</span>
+      <span className="h-5 w-5 flex-shrink-0">{icon}</span>
+      <span className="text-sm font-semibold">{label}</span>
+      {active && (
+        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white opacity-70" />
+      )}
     </Link>
   );
 }
+
+// ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // ── All state starts as "unknown" on server and client alike ──────────────
   const [mounted, setMounted] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-  const initializeDashboard = async () => {
-    try {
-      // Resolve user
-      const user = await getCurrentUser();
-      setCurrentUser(user);
+    const initializeDashboard = async () => {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
 
-      // Attempt to initialise the socket
-      const socket = getSocket();
+        const socket = getSocket();
+        if (socket === null) {
+          handleAuthFailure("missing");
+          return;
+        }
 
-      if (socket === null) {
-        console.warn("[dashboard-layout] No socket/session, redirecting.");
-        handleAuthFailure("missing");
-        return;
-      }
-
-      // Mark as mounted last
-      queueMicrotask(() => {
-        setMounted(true);
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
-
-      queueMicrotask(() => {
-        setConfigError(
-          `Dashboard configuration error${
-            message ? ` (${message})` : ""
-          } — contact your administrator.`
+        queueMicrotask(() => setMounted(true));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        queueMicrotask(() =>
+          setConfigError(
+            `Dashboard configuration error${message ? ` (${message})` : ""} — contact your administrator.`
+          )
         );
-      });
+      }
+    };
+
+    initializeDashboard();
+    return () => { disconnectSocket(); };
+  }, []);
+
+  // // Close drawer on route change
+  // useEffect(() => {
+
+  //   setDrawerOpen(false);
+  // }, [pathname]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (drawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
     }
-  };
-
-  initializeDashboard();
-
-  return () => {
-    disconnectSocket();
-  };
-}, []);
+    return () => { document.body.style.overflow = ""; };
+  }, [drawerOpen]);
 
   const logout = () => {
     clearAuthSession();
@@ -185,20 +212,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       : []),
   ];
 
-  // ── Always render the same outer shell on server + initial client paint ───
-  // Only swap in error UI or user-specific content after mount.
+  const userInitials = currentUser?.email?.slice(0, 2).toUpperCase() ?? "";
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
-      {/* ── Left nav rail (desktop only) ───────────────────────────────────── */}
+
+      {/* ── Desktop left nav rail ───────────────────────────────────────────── */}
       <nav className="relative z-40 hidden md:flex w-[60px] flex-shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white py-3 shadow-sm">
-        {/* Brand mark */}
         <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 shadow shadow-slate-900/25">
           <IconHotel className="h-4 w-4 text-white" />
         </div>
 
         <div className="h-px w-8 bg-slate-200" />
 
-        {/* Nav items — only rendered after mount so server/client match */}
         <div className="mt-2 flex flex-col items-center gap-1">
           {mounted &&
             navItems.map((item) => {
@@ -218,14 +244,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             })}
         </div>
 
-        {/* Bottom: avatar + sign out */}
         <div className="mt-auto flex flex-col items-center gap-2">
           {mounted && currentUser && (
             <div
               className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold uppercase text-slate-600"
               title={currentUser.email}
             >
-              {currentUser.email.slice(0, 2)}
+              {userInitials}
             </div>
           )}
           <button
@@ -239,39 +264,120 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
       </nav>
 
-      {/* ── Bottom nav (mobile only) ────────────────────────────────────────── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden items-stretch border-t border-slate-200 bg-white shadow-[0_-1px_4px_rgba(0,0,0,0.06)]">
-        {mounted &&
-          navItems.map((item) => {
-            const active =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href);
-            return (
-              <BottomNavItem
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                active={active}
-              />
-            );
-          })}
-        <button
-          type="button"
-          onClick={logout}
-          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-slate-400 active:text-red-500 transition-colors"
+      {/* ── Mobile top bar ──────────────────────────────────────────────────── */}
+      <div className="fixed top-0 left-0 right-0 z-40 flex md:hidden items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
+        {/* Brand */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900">
+            <IconHotel className="h-4 w-4 text-white" />
+          </div>
+          <span className="text-sm font-bold tracking-tight text-slate-900">hoscover</span>
+        </div>
+
+        {/* Right side: avatar + hamburger */}
+        <div className="flex items-center gap-2">
+          {mounted && currentUser && (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold uppercase text-slate-600">
+              {userInitials}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100"
+            aria-label="Open menu"
+          >
+            <IconMenu className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Mobile drawer overlay ───────────────────────────────────────────── */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 z-50 md:hidden"
+          onClick={() => setDrawerOpen(false)}
         >
-          <span className="flex h-6 w-6 items-center justify-center">
-            <IconLogout className="h-4 w-4" />
-          </span>
-          <span className="text-[10px] font-medium leading-none">Sign out</span>
-        </button>
-      </nav>
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+
+          {/* Drawer panel — slides in from left */}
+          <div
+            className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900">
+                  <IconHotel className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold tracking-tight text-slate-900">hoscover</p>
+                  <p className="text-[10px] uppercase tracking-[0.08em] text-slate-400 whitespace-nowrap">
+                    Guest operations cloud
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close menu"
+              >
+                <IconX className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Nav items */}
+            <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+              {mounted &&
+                navItems.map((item) => {
+                  const active =
+                    item.href === "/dashboard"
+                      ? pathname === "/dashboard"
+                      : pathname.startsWith(item.href);
+                  return (
+                    <DrawerNavItem
+                      key={item.href}
+                      href={item.href}
+                      label={item.label}
+                      icon={item.icon}
+                      active={active}
+                      onClick={() => setDrawerOpen(false)}
+                    />
+                  );
+                })}
+            </div>
+
+            {/* Drawer footer: user info + sign out */}
+            <div className="border-t border-slate-100 px-3 py-4 space-y-1">
+              {mounted && currentUser && (
+                <div className="flex items-center gap-3 rounded-2xl px-4 py-3 bg-slate-50">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold uppercase text-slate-600">
+                    {userInitials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-slate-700">{currentUser.email}</p>
+                    <p className="text-[10px] text-slate-400 capitalize">{currentUser.role?.toLowerCase()}</p>
+                  </div>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={logout}
+                className="flex w-full items-center gap-4 rounded-2xl px-4 py-3.5 text-red-500 transition hover:bg-red-50"
+              >
+                <IconLogout className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm font-semibold">Sign out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Page content ───────────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden pb-16 md:pb-0">
-        {/* Config error overlay — shown client-side only after mount */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-14 md:pt-0">
         {mounted && configError ? (
           <div className="flex flex-1 items-center justify-center px-6 text-center">
             <div className="glass-card rounded-3xl px-7 py-8">

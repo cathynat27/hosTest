@@ -22,12 +22,12 @@ import type { Campaign, CampaignStatus, CampaignType } from "@/types";
 
 /** Human-readable labels for each campaign type value. */
 const TYPE_LABELS: Record<CampaignType, string> = {
-  pre_arrival_upsell:     "Pre-Arrival Upsell",
-  in_stay_offer:          "In-Stay Offer",
-  fnb_promotion:          "F&B Promotion",
-  late_checkout:          "Late Checkout",
+  pre_arrival_upsell: "Pre-Arrival Upsell",
+  in_stay_offer: "In-Stay Offer",
+  fnb_promotion: "F&B Promotion",
+  late_checkout: "Late Checkout",
   post_stay_reengagement: "Post-Stay Re-engagement",
-  seasonal_event:         "Seasonal / Event",
+  seasonal_event: "Seasonal / Event",
 };
 
 /**
@@ -36,23 +36,23 @@ const TYPE_LABELS: Record<CampaignType, string> = {
  * red = problem, slate = neutral.
  */
 const STATUS_STYLES: Record<CampaignStatus, string> = {
-  draft:      "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
-  scheduled:  "bg-blue-50  text-blue-700  ring-1 ring-blue-200",
+  draft: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+  scheduled: "bg-blue-50  text-blue-700  ring-1 ring-blue-200",
   processing: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-  completed:  "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-  cancelled:  "bg-slate-100 text-slate-400 ring-1 ring-slate-200",
-  failed:     "bg-red-50   text-red-700   ring-1 ring-red-200",
+  completed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  cancelled: "bg-slate-100 text-slate-400 ring-1 ring-slate-200",
+  failed: "bg-red-50   text-red-700   ring-1 ring-red-200",
 };
 
 type StatusFilter = "all" | CampaignStatus;
 
 const STATUS_TABS: { key: StatusFilter; label: string }[] = [
-  { key: "all",        label: "All" },
-  { key: "draft",      label: "Draft" },
-  { key: "scheduled",  label: "Scheduled" },
+  { key: "all", label: "All" },
+  { key: "draft", label: "Draft" },
+  { key: "scheduled", label: "Scheduled" },
   { key: "processing", label: "Sending" },
-  { key: "completed",  label: "Completed" },
-  { key: "failed",     label: "Failed" },
+  { key: "completed", label: "Completed" },
+  { key: "failed", label: "Failed" },
 ];
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -316,15 +316,14 @@ export default function CampaignsPage() {
               key={tab.key}
               type="button"
               onClick={() => setStatusFilter(tab.key)}
-              className={`flex-shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
-                statusFilter === tab.key
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-500 hover:bg-slate-100"
-              }`}
+              className={`flex-shrink-0 rounded-lg px-1.5 py-0.5 text-[9px] sm:px-2.5 sm:py-1 sm:text-[11px] font-semibold transition ${statusFilter === tab.key
+                ? "bg-slate-900 text-white"
+                : "text-slate-500 hover:bg-slate-100"
+                }`}
             >
               {tab.label}
               {!loading && (
-                <span className="ml-1 opacity-60">({count})</span>
+                <sup className="ml-0.5 opacity-60 text-[8px]">({count})</sup>
               )}
             </button>
           );

@@ -73,20 +73,19 @@ function LoginForm() {
 
   return (
     <main className="min-h-screen bg-white px-4 py-8 sm:px-6 sm:py-12">
-      <div className="mx-auto max-w-md rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] sm:p-8">
-        <div className="mb-6 flex items-start justify-between gap-3">
-          <HoscoverLogo
-            className="flex items-center gap-3"
-            textClassName="space-y-0.5"
-            markClassName="h-10 w-10 rounded-xl"
-          />
-          <Link
-            href="/"
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
-            Back
-          </Link>
-        </div>
+      <div className="mx-auto max-w-md rounded-[2rem] border border-slate-200 bg-white px-8 py-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] sm:px-10 sm:py-8">        <div className="mb-6 flex items-start justify-between gap-3">
+        <HoscoverLogo
+          className="flex items-center gap-3"
+          textClassName="space-y-0.5"
+          markClassName="h-10 w-10 rounded-xl"
+        />
+        <Link
+          href="/"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+        >
+          Back
+        </Link>
+      </div>
 
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Staff sign in</h1>
         <p className="mt-2 text-sm text-slate-600">Access the dashboard and manage guest conversations.</p>
